@@ -364,3 +364,84 @@ export const useHeroVideos = () => {
     useSupabase: isSupabaseConfigured() 
   };
 };
+
+/**
+ * --- LÓGICA HÍBRIDA (FASE 14) ---
+ * Resuelve las métricas de una campaña basándose en su fuente y overrides.
+ * Prioridad:
+ * 1. Override Manual (si existe y modo es hybrid/api)
+ * 2. Datos API (si modo es api/hybrid)
+ * 3. Fallback Manual (datos originales)
+ */
+export const resolveCampaignMetrics = (campaign: Campaign) => {
+  const source = campaign.metrics_source || 'manual';
+  
+  // REACH
+  let resolvedReach = campaign.metrics_reach || 0;
+  if (source === 'api' || source === 'hybrid') {
+    resolvedReach = campaign.override_reach ?? campaign.real_reach_api ?? resolvedReach;
+  }
+  
+  // IMPRESSIONS
+  let resolvedImpressions = campaign.metrics_impressions || 0;
+  if (source === 'api' || source === 'hybrid') {
+    resolvedImpressions = campaign.override_impressions ?? campaign.real_impressions_api ?? resolvedImpressions;
+  }
+
+  return {
+    reach: resolvedReach,
+    impressions: resolvedImpressions,
+    // Clicks y Engagement siguen lógica similar si se extienden
+    engagement: campaign.real_engagement_api || 0,
+    isApi: source === 'api' || source === 'hybrid',
+    lastSync: campaign.last_synced_at,
+    syncStatus: campaign.api_sync_status
+  };
+};
+
+// Hook for platform integrations (Tokens) - Optimized with React Query
+export const usePlatformIntegrations = () => {
+  const queryClient = useQueryClient();
+
+  const { data: integrations, isLoading: loading, refetch } = useQuery({
+    queryKey: ['platform_integrations'],
+    queryFn: async () => {
+      if (isSupabaseConfigured()) {
+        const { data, error } = await (await import('@/lib/supabase-data')).supabase
+          .from('api_integrations')
+          .select('*');
+        if (error) throw error;
+        return data || [];
+      }
+      return [];
+    },
+  });
+
+  const updateIntegrationMutation = useMutation({
+    mutationFn: async ({ platform, token, expires_at }: { platform: string; token: string; expires_at?: string }) => {
+      const { data, error } = await (await import('@/lib/supabase-data')).supabase
+        .from('api_integrations')
+        .upsert({ 
+          platform, 
+          access_token: token,
+          expires_at,
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['platform_integrations'] });
+    }
+  });
+
+  return {
+    integrations: integrations || [],
+    loading,
+    saveToken: (platform: string, token: string, expires_at?: string) => 
+      updateIntegrationMutation.mutateAsync({ platform, token, expires_at }),
+    refresh: refetch
+  };
+};

@@ -44,6 +44,21 @@ export interface Campaign {
   real_impressions?: number;
   real_clicks?: number;
   accepted_at?: string;
+  // --- CAMPOS HÍBRIDOS (FASE 14) ---
+  metrics_source?: 'manual' | 'api' | 'hybrid';
+  last_synced_at?: string;
+  api_sync_status?: 'idle' | 'success' | 'error';
+  api_sync_error?: string;
+  external_post_id?: string;
+  external_platform?: string;
+  // Datos crudos de la API (para persistencia)
+  real_reach_api?: number;
+  real_impressions_api?: number;
+  real_engagement_api?: number;
+  // Overrides manuales (prioridad máxima en modo híbrido)
+  override_reach?: number;
+  override_impressions?: number;
+  // ---------------------------------
   // Estado de la colaboración
   is_active?: boolean; // true = colaboración activa, false = colaboración anterior
   // URL del sitio web de la marca (para redirección desde logos)
@@ -54,6 +69,15 @@ export interface Campaign {
   budget_currency?: string;
   // Insights dinámicos (opcionales)
   insights?: CampaignInsight;
+}
+
+export interface ApiIntegration {
+  id: string;
+  platform: 'instagram';
+  access_token: string;
+  expires_at?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface CampaignInsight {

@@ -32,8 +32,11 @@ import QuoteRequestsPanel from "@/components/admin/QuoteRequestsPanel";
 import AudienceEditor from "@/components/admin/AudienceEditor";
 import HeroVideosManager from "@/components/admin/HeroVideosManager";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
+import { usePlatformIntegrations } from "@/hooks/use-data";
 import type { Session } from "@supabase/supabase-js";
 import type { QuoteRequest } from "@/lib/supabase-data";
+import IntegrationsManager from "@/components/admin/IntegrationsManager";
+import { isPast, subDays } from "date-fns";
 
 const Admin = () => {
   // Auth state
@@ -105,6 +108,20 @@ const Admin = () => {
     requestPermission,
     sendNotification
   } = usePushNotifications();
+
+  // Integrations state for alerts
+  const { integrations } = usePlatformIntegrations();
+  const expiringToken = integrations?.find(i => {
+    if (!i.expires_at) return false;
+    const expiryDate = new Date(i.expires_at);
+    // Alert if expires in less than 7 days
+    return !isPast(expiryDate) && isPast(subDays(expiryDate, 7));
+  });
+
+  const expiredToken = integrations?.find(i => {
+    if (!i.expires_at) return false;
+    return isPast(new Date(i.expires_at));
+  });
 
   // Update local stats when stats change
   useEffect(() => {
@@ -707,8 +724,58 @@ WHERE email = '${session.user.email}';`}
             </div>
           </div>
 
+          {/* Token Expiration Alerts */}
+          {expiredToken && (
+            <motion.div 
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="mb-6 bg-destructive/10 border border-destructive/30 p-4 rounded-xl flex items-center gap-4 text-destructive"
+            >
+              <AlertTriangle className="w-6 h-6 shrink-0" />
+              <div className="flex-1">
+                <p className="font-bold">Acceso a Instagram Expirado</p>
+                <p className="text-sm opacity-90">Las métricas automáticas no se están actualizando. Por favor, renueva el token.</p>
+              </div>
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                onClick={() => {
+                  const tabsTrigger = document.querySelector('[value="integrations"]') as HTMLButtonElement;
+                  if (tabsTrigger) tabsTrigger.click();
+                }}
+              >
+                Actualizar Ahora
+              </Button>
+            </motion.div>
+          )}
+
+          {expiringToken && !expiredToken && (
+            <motion.div 
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="mb-6 bg-amber-500/10 border border-amber-500/30 p-4 rounded-xl flex items-center gap-4 text-amber-700 dark:text-amber-400"
+            >
+              <Bell className="w-6 h-6 shrink-0" />
+              <div className="flex-1">
+                <p className="font-bold">Token de Instagram Próximo a Expirar</p>
+                <p className="text-sm opacity-90">El acceso caducará pronto. Renuévalo para evitar interrupciones en las métricas.</p>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="border-amber-500/50 hover:bg-amber-500/10"
+                onClick={() => {
+                  const tabsTrigger = document.querySelector('[value="integrations"]') as HTMLButtonElement;
+                  if (tabsTrigger) tabsTrigger.click();
+                }}
+              >
+                Gestionar
+              </Button>
+            </motion.div>
+          )}
+
           <Tabs defaultValue="profile" className="space-y-6">
-            <TabsList className="grid grid-cols-9 w-full max-w-5xl">
+            <TabsList className="grid grid-cols-10 w-full max-w-5xl">
               <TabsTrigger value="profile" className="flex items-center gap-2">
                 <User className="w-4 h-4" />
                 <span className="hidden sm:inline">Perfil</span>
@@ -716,6 +783,10 @@ WHERE email = '${session.user.email}';`}
               <TabsTrigger value="supabase" className="flex items-center gap-2">
                 <Database className="w-4 h-4" />
                 <span className="hidden sm:inline">Supabase</span>
+              </TabsTrigger>
+              <TabsTrigger value="integrations" className="flex items-center gap-2">
+                <KeyRound className="w-4 h-4" />
+                <span className="hidden sm:inline">API</span>
               </TabsTrigger>
               <TabsTrigger value="stats" className="flex items-center gap-2">
                 <BarChart3 className="w-4 h-4" />
@@ -746,6 +817,11 @@ WHERE email = '${session.user.email}';`}
                 <span className="hidden sm:inline">Banner</span>
               </TabsTrigger>
             </TabsList>
+
+            {/* Integrations Tab */}
+            <TabsContent value="integrations" className="space-y-6">
+              <IntegrationsManager />
+            </TabsContent>
 
             {/* Profile Tab */}
             <TabsContent value="profile" className="space-y-6">
