@@ -18,7 +18,8 @@ import {
   Mail,
   MessageSquareQuote,
   Trash2,
-  Facebook
+  Facebook,
+  Twitter
 } from "lucide-react";
 import { 
   type ProfileConfig,
@@ -317,7 +318,35 @@ const ProfileEditor = () => {
                 </div>
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2">
-                    <Mail className="w-4 h-4" /> Email
+                    <Twitter className="w-4 h-4" /> X (Twitter)
+                  </Label>
+                  <Input
+                    value={profile.socialLinks.x || ""}
+                    onChange={(e) => setProfile({ 
+                      ...profile, 
+                      socialLinks: { ...profile.socialLinks, x: e.target.value }
+                    })}
+                    placeholder="https://x.com/..."
+                    className="border-primary/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <MessageSquareQuote className="w-4 h-4" /> Threads
+                  </Label>
+                  <Input
+                    value={profile.socialLinks.threads || ""}
+                    onChange={(e) => setProfile({ 
+                      ...profile, 
+                      socialLinks: { ...profile.socialLinks, threads: e.target.value }
+                    })}
+                    placeholder="https://threads.net/@..."
+                    className="border-primary/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Mail className="w-4 h-4" /> Email de Contacto
                   </Label>
                   <Input
                     value={profile.socialLinks.email}

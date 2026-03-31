@@ -47,6 +47,9 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 const platformLabels: Record<string, string> = {
   instagram: "Instagram",
   tiktok: "TikTok",
+  facebook: "Facebook",
+  x: "X",
+  threads: "Threads",
   both: "Ambas",
 };
 

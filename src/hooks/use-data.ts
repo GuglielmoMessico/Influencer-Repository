@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Stats, Campaign, BestPost, AudienceGender, AudienceAge, CampaignInsight, HeroVideo } from '@/lib/data';
 import {
   getStatsFromSupabase,
@@ -21,139 +22,169 @@ import {
   addHeroVideoToSupabase,
   updateHeroVideoInSupabase,
   deleteHeroVideoFromSupabase,
-  isSupabaseConfigured
+  isSupabaseConfigured,
+  logAuditAction
 } from '@/lib/supabase-data';
 
-// Hook for stats - SOLO Supabase
+// Hook for stats - Optimized with React Query
 export const useStats = () => {
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  
+  const { data: stats, isLoading: loading, refetch } = useQuery({
+    queryKey: ['stats'],
+    queryFn: async () => {
+      if (isSupabaseConfigured()) {
+        return await getStatsFromSupabase();
+      }
+      return null;
+    },
+  });
 
-  const fetchStats = useCallback(async () => {
-    setLoading(true);
-    
-    if (isSupabaseConfigured()) {
-      const supabaseStats = await getStatsFromSupabase();
-      if (supabaseStats) {
-        setStats(supabaseStats);
+  const updateStatsMutation = useMutation({
+    mutationFn: updateStatsInSupabase,
+    onSuccess: (updated) => {
+      if (updated) {
+        queryClient.setQueryData(['stats'], updated);
+        logAuditAction({
+          action: 'update_stats',
+          resource_type: 'stats',
+          new_values: updated
+        });
       }
     }
-    
-    setLoading(false);
-  }, []);
+  });
 
-  useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
-
-  const updateStats = async (newStats: Partial<Stats>) => {
-    const updated = await updateStatsInSupabase(newStats);
-    if (updated) {
-      setStats(updated);
-      return updated;
-    }
-    return null;
+  return { 
+    stats: stats || null, 
+    loading, 
+    updateStats: updateStatsMutation.mutateAsync, 
+    refresh: refetch, 
+    useSupabase: isSupabaseConfigured() 
   };
-
-  return { stats, loading, updateStats, refresh: fetchStats, useSupabase: isSupabaseConfigured() };
 };
 
-// Hook for campaigns - SOLO Supabase
+// Hook for campaigns - Optimized with React Query
 export const useCampaigns = () => {
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  const fetchCampaigns = useCallback(async () => {
-    setLoading(true);
-    
-    if (isSupabaseConfigured()) {
-      const supabaseCampaigns = await getCampaignsFromSupabase();
-      if (supabaseCampaigns) {
-        setCampaigns(supabaseCampaigns);
+  const { data: campaigns, isLoading: loading, refetch } = useQuery({
+    queryKey: ['campaigns'],
+    queryFn: async () => {
+      if (isSupabaseConfigured()) {
+        const data = await getCampaignsFromSupabase();
+        return data || [];
+      }
+      return [];
+    },
+  });
+
+  const addCampaignMutation = useMutation({
+    mutationFn: addCampaignToSupabase,
+    onSuccess: (added) => {
+      if (added) {
+        queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+        logAuditAction({
+          action: 'create_campaign',
+          resource_type: 'campaign',
+          resource_id: added.id,
+          new_values: added
+        });
       }
     }
-    
-    setLoading(false);
-  }, []);
+  });
 
-  useEffect(() => {
-    fetchCampaigns();
-  }, [fetchCampaigns]);
-
-  const addCampaign = async (campaign: Omit<Campaign, 'id'>) => {
-    const added = await addCampaignToSupabase(campaign);
-    if (added) {
-      setCampaigns(prev => [added, ...prev]);
-      return added;
+  const updateCampaignMutation = useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Partial<Campaign> }) => 
+      updateCampaignInSupabase(id, updates),
+    onSuccess: (updated) => {
+      if (updated) {
+        queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+        logAuditAction({
+          action: 'update_campaign',
+          resource_type: 'campaign',
+          resource_id: updated.id,
+          new_values: updated
+        });
+      }
     }
-    return null;
-  };
+  });
 
-  const updateCampaign = async (id: string, updates: Partial<Campaign>) => {
-    const updated = await updateCampaignInSupabase(id, updates);
-    if (updated) {
-      setCampaigns(prev => prev.map(c => c.id === id ? updated : c));
-      return updated;
+  const removeCampaignMutation = useMutation({
+    mutationFn: deleteCampaignFromSupabase,
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+      logAuditAction({
+        action: 'delete_campaign',
+        resource_type: 'campaign',
+        resource_id: id
+      });
     }
-    return null;
-  };
+  });
 
-  const removeCampaign = async (id: string) => {
-    const success = await deleteCampaignFromSupabase(id);
-    if (success) {
-      setCampaigns(prev => prev.filter(c => c.id !== id));
-      return true;
-    }
-    return false;
+  return { 
+    campaigns: campaigns || [], 
+    loading, 
+    addCampaign: addCampaignMutation.mutateAsync, 
+    updateCampaign: (id: string, updates: Partial<Campaign>) => updateCampaignMutation.mutateAsync({ id, updates }), 
+    removeCampaign: removeCampaignMutation.mutateAsync, 
+    refresh: refetch, 
+    useSupabase: isSupabaseConfigured() 
   };
-
-  return { campaigns, loading, addCampaign, updateCampaign, removeCampaign, refresh: fetchCampaigns, useSupabase: isSupabaseConfigured() };
 };
 
-// Hook for best posts - SOLO Supabase
+// Hook for best posts - Optimized with React Query
 export const useBestPosts = () => {
-  const [posts, setPosts] = useState<BestPost[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  const fetchPosts = useCallback(async () => {
-    setLoading(true);
-    
-    if (isSupabaseConfigured()) {
-      const supabasePosts = await getBestPostsFromSupabase();
-      if (supabasePosts) {
-        setPosts(supabasePosts);
+  const { data: posts, isLoading: loading, refetch } = useQuery({
+    queryKey: ['best_posts'],
+    queryFn: async () => {
+      if (isSupabaseConfigured()) {
+        const data = await getBestPostsFromSupabase();
+        return data || [];
+      }
+      return [];
+    },
+  });
+
+  const addPostMutation = useMutation({
+    mutationFn: addBestPostToSupabase,
+    onSuccess: (added) => {
+      if (added) {
+        queryClient.invalidateQueries({ queryKey: ['best_posts'] });
+        logAuditAction({
+          action: 'create_best_post',
+          resource_type: 'best_post',
+          resource_id: added.id,
+          new_values: added
+        });
       }
     }
-    
-    setLoading(false);
-  }, []);
+  });
 
-  useEffect(() => {
-    fetchPosts();
-  }, [fetchPosts]);
-
-  const addPost = async (post: Omit<BestPost, 'id'>) => {
-    const added = await addBestPostToSupabase(post);
-    if (added) {
-      setPosts(prev => [added, ...prev]);
-      return added;
+  const removePostMutation = useMutation({
+    mutationFn: deleteBestPostFromSupabase,
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['best_posts'] });
+      logAuditAction({
+        action: 'delete_best_post',
+        resource_type: 'best_post',
+        resource_id: id
+      });
     }
-    return null;
-  };
+  });
 
-  const removePost = async (id: string) => {
-    const success = await deleteBestPostFromSupabase(id);
-    if (success) {
-      setPosts(prev => prev.filter(p => p.id !== id));
-      return true;
-    }
-    return false;
+  return { 
+    posts: posts || [], 
+    loading, 
+    addPost: addPostMutation.mutateAsync, 
+    removePost: removePostMutation.mutateAsync, 
+    refresh: refetch, 
+    useSupabase: isSupabaseConfigured() 
   };
-
-  return { posts, loading, addPost, removePost, refresh: fetchPosts, useSupabase: isSupabaseConfigured() };
 };
 
-// Function to get campaign by code and email - SOLO Supabase
+// Function to get campaign by code and email
 export const getCampaignByCodeAndEmail = async (code: string, email: string): Promise<Campaign | null> => {
   if (isSupabaseConfigured()) {
     return await getCampaignByCodeAndEmailFromSupabase(code, email);
@@ -161,165 +192,175 @@ export const getCampaignByCodeAndEmail = async (code: string, email: string): Pr
   return null;
 };
 
-// Hook for audience demographics - SOLO Supabase (sin datos hardcodeados)
+// Hook for audience demographics - Optimized with React Query
 export const useAudienceData = () => {
-  const [genderData, setGenderData] = useState<AudienceGender[]>([]);
-  const [ageData, setAgeData] = useState<AudienceAge[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  const fetchAudienceData = useCallback(async () => {
-    setLoading(true);
-    
-    if (isSupabaseConfigured()) {
-      const [gender, age] = await Promise.all([
-        getAudienceGenderFromSupabase(),
-        getAudienceAgeFromSupabase()
-      ]);
-      
-      // Solo setear si hay datos reales - NO usar fallbacks
-      setGenderData(gender || []);
-      setAgeData(age || []);
-    }
-    
-    setLoading(false);
-  }, []);
+  const { data: audience, isLoading: loading, refetch } = useQuery({
+    queryKey: ['audience_data'],
+    queryFn: async () => {
+      if (isSupabaseConfigured()) {
+        const [gender, age] = await Promise.all([
+          getAudienceGenderFromSupabase(),
+          getAudienceAgeFromSupabase()
+        ]);
+        return { gender: gender || [], age: age || [] };
+      }
+      return { gender: [], age: [] };
+    },
+  });
 
-  useEffect(() => {
-    fetchAudienceData();
-  }, [fetchAudienceData]);
-
-  const updateGenderData = async (newData: AudienceGender[]) => {
-    const success = await updateAudienceGenderInSupabase(newData);
-    if (success) {
-      setGenderData(newData);
-      return true;
-    }
-    return false;
-  };
-
-  const updateAgeData = async (newData: AudienceAge[]) => {
-    const success = await updateAudienceAgeInSupabase(newData);
-    if (success) {
-      setAgeData(newData);
-      return true;
-    }
-    return false;
-  };
-
-  return { 
-    genderData, 
-    ageData, 
-    loading, 
-    updateGenderData, 
-    updateAgeData, 
-    refresh: fetchAudienceData,
-    useSupabase: isSupabaseConfigured() 
-  };
-};
-
-// Hook for campaign insights - SOLO Supabase
-export const useCampaignInsights = (campaignId?: string) => {
-  const [insights, setInsights] = useState<CampaignInsight | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const fetchInsights = useCallback(async (id: string) => {
-    setLoading(true);
-    if (isSupabaseConfigured()) {
-      const data = await getCampaignInsightsFromSupabase(id);
-      setInsights(data);
-    }
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    if (campaignId) {
-      fetchInsights(campaignId);
-    }
-  }, [campaignId, fetchInsights]);
-
-  const upsertInsights = async (data: Omit<CampaignInsight, 'id' | 'updated_at'>) => {
-    const updated = await upsertCampaignInsightsInSupabase(data);
-    if (updated) {
-      setInsights(updated);
-      return updated;
-    }
-    return null;
-  };
-
-  return { 
-    insights, 
-    loading, 
-    upsertInsights, 
-    refresh: () => campaignId && fetchInsights(campaignId),
-    useSupabase: isSupabaseConfigured() 
-  };
-};
-
-// Hook for hero videos - SOLO Supabase
-export const useHeroVideos = () => {
-  const [videos, setVideos] = useState<HeroVideo[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchVideos = useCallback(async () => {
-    setLoading(true);
-    
-    if (isSupabaseConfigured()) {
-      const supabaseVideos = await getHeroVideosFromSupabase();
-      if (supabaseVideos) {
-        setVideos(supabaseVideos);
+  const updateGenderMutation = useMutation({
+    mutationFn: updateAudienceGenderInSupabase,
+    onSuccess: (success, newData) => {
+      if (success) {
+        queryClient.invalidateQueries({ queryKey: ['audience_data'] });
+        logAuditAction({
+          action: 'update_audience_gender',
+          resource_type: 'audience',
+          new_values: newData
+        });
       }
     }
-    
-    setLoading(false);
-  }, []);
+  });
 
-  useEffect(() => {
-    fetchVideos();
-  }, [fetchVideos]);
-
-  const addVideo = async (video: Omit<HeroVideo, 'id' | 'created_at'>) => {
-    const added = await addHeroVideoToSupabase(video);
-    if (added) {
-      setVideos(prev => [...prev, (added as HeroVideo)].sort((a, b) => (a.order_index || 0) - (b.order_index || 0)));
-      return true;
+  const updateAgeMutation = useMutation({
+    mutationFn: updateAudienceAgeInSupabase,
+    onSuccess: (success, newData) => {
+      if (success) {
+        queryClient.invalidateQueries({ queryKey: ['audience_data'] });
+        logAuditAction({
+          action: 'update_audience_age',
+          resource_type: 'audience',
+          new_values: newData
+        });
+      }
     }
-    return false;
-  };
-
-  const updateVideo = async (id: string, updates: Partial<HeroVideo>) => {
-    const updated = await updateHeroVideoInSupabase(id, updates);
-    if (updated) {
-      setVideos(prev => 
-        prev.map(v => v.id === id ? updated : v)
-            .sort((a, b) => a.order_index - b.order_index)
-      );
-      return updated;
-    }
-    return null;
-  };
-
-  const removeVideo = async (id: string) => {
-    const success = await deleteHeroVideoFromSupabase(id);
-    if (success) {
-      setVideos(prev => prev.filter(v => v.id !== id));
-      return true;
-    }
-    return false;
-  };
-
-  const toggleVideoActive = async (id: string, active: boolean) => {
-    const updated = await updateVideo(id, { is_active: active });
-    return !!updated;
-  };
+  });
 
   return { 
-    videos, 
+    genderData: audience?.gender || [], 
+    ageData: audience?.age || [], 
     loading, 
-    addVideo, 
-    updateVideo, 
-    removeVideo, 
-    toggleVideoActive,
-    refresh: fetchVideos, 
+    updateGenderData: updateGenderMutation.mutateAsync, 
+    updateAgeData: updateAgeMutation.mutateAsync, 
+    refresh: refetch,
+    useSupabase: isSupabaseConfigured() 
+  };
+};
+
+// Hook for campaign insights - Optimized with React Query
+export const useCampaignInsights = (campaignId?: string) => {
+  const queryClient = useQueryClient();
+
+  const { data: insights, isLoading: loading, refetch } = useQuery({
+    queryKey: ['campaign_insights', campaignId],
+    queryFn: async () => {
+      if (isSupabaseConfigured() && campaignId) {
+        return await getCampaignInsightsFromSupabase(campaignId);
+      }
+      return null;
+    },
+    enabled: !!campaignId,
+  });
+
+  const upsertInsightsMutation = useMutation({
+    mutationFn: upsertCampaignInsightsInSupabase,
+    onSuccess: (updated) => {
+      if (updated) {
+        queryClient.invalidateQueries({ queryKey: ['campaign_insights', campaignId] });
+        logAuditAction({
+          action: 'update_insights',
+          resource_type: 'campaign_insight',
+          resource_id: campaignId,
+          new_values: updated
+        });
+      }
+    }
+  });
+
+  return { 
+    insights: insights || null, 
+    loading, 
+    upsertInsights: upsertInsightsMutation.mutateAsync, 
+    refresh: () => campaignId && refetch(),
+    useSupabase: isSupabaseConfigured() 
+  };
+};
+
+// Hook for hero videos - Optimized with React Query
+export const useHeroVideos = () => {
+  const queryClient = useQueryClient();
+
+  const { data: videos, isLoading: loading, refetch } = useQuery({
+    queryKey: ['hero_videos'],
+    queryFn: async () => {
+      if (isSupabaseConfigured()) {
+        const data = await getHeroVideosFromSupabase();
+        return (data || []).sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+      }
+      return [];
+    },
+  });
+
+  const addVideoMutation = useMutation({
+    mutationFn: addHeroVideoToSupabase,
+    onSuccess: (added) => {
+      if (added) {
+        queryClient.invalidateQueries({ queryKey: ['hero_videos'] });
+        logAuditAction({
+          action: 'add_hero_video',
+          resource_type: 'hero_video',
+          resource_id: added.id,
+          new_values: added
+        });
+      }
+    }
+  });
+
+  const updateVideoMutation = useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Partial<HeroVideo> }) => 
+      updateHeroVideoInSupabase(id, updates),
+    onSuccess: (updated) => {
+      if (updated) {
+        queryClient.invalidateQueries({ queryKey: ['hero_videos'] });
+        logAuditAction({
+          action: 'update_hero_video',
+          resource_type: 'hero_video',
+          resource_id: updated.id,
+          new_values: updated
+        });
+      }
+    }
+  });
+
+  const removeVideoMutation = useMutation({
+    mutationFn: deleteHeroVideoFromSupabase,
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['hero_videos'] });
+      logAuditAction({
+        action: 'delete_hero_video',
+        resource_type: 'hero_video',
+        resource_id: id
+      });
+    }
+  });
+
+  return { 
+    videos: videos || [], 
+    loading, 
+    addVideo: addVideoMutation.mutateAsync, 
+    updateVideo: (id: string, updates: Partial<HeroVideo>) => updateVideoMutation.mutateAsync({ id, updates }), 
+    removeVideo: removeVideoMutation.mutateAsync, 
+    toggleVideoActive: async (id: string, active: boolean) => {
+      const result = await updateHeroVideoInSupabase(id, { is_active: active });
+      if (result) {
+        queryClient.invalidateQueries({ queryKey: ['hero_videos'] });
+        return true;
+      }
+      return false;
+    },
+    refresh: refetch, 
     useSupabase: isSupabaseConfigured() 
   };
 };

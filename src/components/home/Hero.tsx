@@ -15,6 +15,7 @@ import Logo from "@/components/Logo";
 import { isSupabaseConfigured } from "@/lib/supabase-client";
 import { getProfileFromSupabase } from "@/lib/supabase-data";
 import { useHeroVideos } from "@/hooks/use-data";
+import HeroVideoBanner from "./HeroVideoBanner";
 
 const Hero = () => {
   const [profile, setProfile] = useState<ProfileConfig | null>(null);
@@ -46,9 +47,6 @@ const Hero = () => {
   const imageScale = useTransform(scrollYProgress, [0, 1], [1, 0.95]);
   const videoY = useTransform(scrollYProgress, [0, 1], [0, 150]);
   
-  // Active video calculation
-  const activeVideo = videos.filter(v => v.is_active).sort((a, b) => (a.order_index || 0) - (b.order_index || 0))[0];
-
   // Use custom image URL if provided, otherwise use default
   const profileImage = profile?.profileImageUrl || yeferProfile;
 
@@ -60,34 +58,12 @@ const Hero = () => {
 
   return (
     <section ref={sectionRef} className="relative min-h-screen pt-32 pb-20 px-4 flex items-center overflow-hidden">
-      {/* Dynamic Background Video */}
-      <AnimatePresence>
-        {activeVideo && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 1 }}
-            style={{ y: videoY }}
-            className="absolute inset-0 z-0 overflow-hidden"
-          >
-            <div className="absolute inset-0 bg-background/40 backdrop-blur-[2px] z-10" />
-            <div className="absolute inset-0 bg-gradient-to-b from-background/20 via-transparent to-background z-10" />
-            
-            <video
-              autoPlay
-              muted
-              loop
-              playsInline
-              className="w-full h-full object-cover opacity-60"
-              src={activeVideo.video_url}
-              poster={activeVideo.thumbnail_url || undefined}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Dynamic Background Video Banner */}
+      <motion.div style={{ y: videoY }} className="absolute inset-0 z-0">
+        <HeroVideoBanner videos={videos} maxVideos={3} />
+      </motion.div>
 
-      {!activeVideo && !videosLoading && (
+      {!videos.filter(v => v.is_active).length && !videosLoading && (
         <div className="absolute inset-0 z-0 bg-gradient-to-br from-primary/5 via-background to-secondary/5" />
       )}
 

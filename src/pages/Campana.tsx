@@ -13,6 +13,9 @@ import { toast } from "sonner";
 import { Lock, Mail, Key, TrendingUp, Eye, MousePointer, Users, Download, ExternalLink, BarChart3, Target, Zap, Loader2, FileText, Link2 } from "lucide-react";
 import CampaignMetricsChart from "@/components/campana/CampaignMetricsChart";
 import { usePdfExport } from "@/hooks/use-pdf-export";
+import CampaignReportPdf from "@/components/campana/CampaignReportPdf";
+import SEO from "@/components/SEO";
+import DOMPurify from "dompurify";
 
 const Campana = () => {
   const [email, setEmail] = useState("");
@@ -20,7 +23,8 @@ const Campana = () => {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(false);
   const [mediaKitClicks, setMediaKitClicks] = useState(0);
-  const { exportToPdf, exporting } = usePdfExport();
+  const { exportToPDF } = usePdfExport();
+  const [exporting, setExporting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,15 +50,27 @@ const Campana = () => {
     }
   };
 
-  const handleExportPdf = () => {
+  const handleExportPdf = async () => {
     if (campaign) {
-      exportToPdf('campaign-report', campaign);
+      setExporting(true);
+      try {
+        await exportToPDF(campaign, mediaKitClicks);
+        toast.success("Reporte generado con éxito");
+      } catch (error) {
+        toast.error("Error al generar el PDF");
+      } finally {
+        setExporting(false);
+      }
     }
   };
 
   if (campaign) {
     return (
       <div className="min-h-screen bg-background">
+        <SEO 
+          title={`Resultados: ${campaign.brand_name}`} 
+          description={`Dashboard de resultados y métricas reales para la campaña ${campaign.campaign_code}. Ver alcance, impresiones y clicks.`}
+        />
         <Navbar />
         <main className="pt-24 pb-16 px-4">
           <div id="campaign-report" className="container mx-auto max-w-6xl">
@@ -328,9 +344,10 @@ const Campana = () => {
                   </div>
                   {campaign.insights?.insight_summary && (
                     <div className="mt-4 pt-4 border-t border-primary/10">
-                      <p className="text-sm text-muted-foreground italic leading-relaxed">
-                        "{campaign.insights.insight_summary}"
-                      </p>
+                      <p 
+                        className="text-sm text-muted-foreground italic leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(campaign.insights.insight_summary) }}
+                      />
                     </div>
                   )}
                 </CardContent>
@@ -415,6 +432,16 @@ const Campana = () => {
               </p>
             </motion.div>
           </div>
+
+          {/* Hidden PDF Template for Capture */}
+          <div style={{ display: 'none' }}>
+             {campaign && (
+               <CampaignReportPdf 
+                 campaign={campaign} 
+                 mediaKitClicks={mediaKitClicks} 
+               />
+             )}
+          </div>
         </main>
         <Footer />
       </div>
@@ -423,6 +450,10 @@ const Campana = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO 
+        title="Portal de Marcas" 
+        description="Accede a los resultados detallados de tu campaña con influencers. Visualiza métricas reales e insights de performance."
+      />
       <Navbar />
       <main className="pt-24 pb-16 px-4 min-h-[80vh] flex items-center">
         <div className="container mx-auto max-w-md">

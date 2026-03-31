@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import SEO from "@/components/SEO";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -202,6 +203,10 @@ const Cotizacion: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO 
+        title="Cotización" 
+        description="Solicita una cotización personalizada para tu próxima campaña con influencers. Resultados garantizados."
+      />
       <Navbar />
       <main className="container mx-auto px-4 py-8 sm:py-12">
         <motion.div

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Instagram, Facebook, ChevronUp, ChevronDown } from "lucide-react";
+import { Instagram, Facebook, Twitter, MessageSquareQuote, ChevronUp, ChevronDown } from "lucide-react";
 import { type BestPost } from "@/lib/data";
 import { isSupabaseConfigured } from "@/lib/supabase-client";
 import { getBestPostsFromSupabase } from "@/lib/supabase-data";
@@ -26,6 +26,8 @@ const TopContent = () => {
   const instagramPosts = posts.filter(p => p.platform === 'instagram');
   const tiktokPosts = posts.filter(p => p.platform === 'tiktok');
   const facebookPosts = posts.filter(p => p.platform === 'facebook');
+  const xPosts = posts.filter(p => p.platform === 'x');
+  const threadsPosts = posts.filter(p => p.platform === 'threads');
 
   useEffect(() => {
     const loadPosts = async () => {
@@ -68,7 +70,7 @@ const TopContent = () => {
           Top Content
         </motion.h2>
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 md:gap-6 max-w-7xl mx-auto">
           {/* Instagram Column */}
           <PlatformColumn 
             posts={instagramPosts} 
@@ -91,6 +93,22 @@ const TopContent = () => {
             platform="facebook" 
             icon={<Facebook className="w-4 h-4 md:w-5 md:h-5" />}
             title="Facebook"
+          />
+
+          {/* X Column */}
+          <PlatformColumn 
+            posts={xPosts} 
+            platform="x" 
+            icon={<Twitter className="w-4 h-4 md:w-5 md:h-5" />}
+            title="X"
+          />
+
+          {/* Threads Column */}
+          <PlatformColumn 
+            posts={threadsPosts} 
+            platform="threads" 
+            icon={<MessageSquareQuote className="w-4 h-4 md:w-5 md:h-5" />}
+            title="Threads"
           />
         </div>
       </div>

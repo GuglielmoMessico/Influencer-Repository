@@ -17,13 +17,16 @@ import { useStats, useCampaigns, useBestPosts, useCampaignInsights } from "@/hoo
 import { testSupabaseConnection, resetSupabaseClient, isSupabaseConfigured, getSupabaseClient } from "@/lib/supabase-client";
 import { signInWithEmail, signOut, getSession, onAuthStateChange, checkAdminRole } from "@/lib/supabase-auth";
 import { toast } from "sonner";
-import { Lock, BarChart3, Megaphone, Image, Trash2, Plus, LogOut, Save, Database, CheckCircle, XCircle, Loader2, Copy, CloudOff, Cloud, User, Mail, KeyRound, AlertTriangle, LayoutDashboard, FileText, Bell, BellOff, PieChart, Video, ExternalLink } from "lucide-react";
+import { Lock, BarChart3, Megaphone, Image, Trash2, Plus, LogOut, Save, Database, CheckCircle, XCircle, Loader2, Copy, CloudOff, Cloud, User, Mail, KeyRound, AlertTriangle, LayoutDashboard, FileText, Bell, BellOff, PieChart, Video, ExternalLink, TrendingUp } from "lucide-react";
+import SEO from "@/components/SEO";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import ProfileEditor from "@/components/admin/ProfileEditor";
 import ImageUploader from "@/components/admin/ImageUploader";
 import { getStorageSetupSQL } from "@/lib/supabase-storage";
+import { EditInsightsModal } from "@/components/admin/EditInsightsModal";
+import { EditMetricsModal } from "@/components/admin/EditMetricsModal";
 import CampaignsDashboard from "@/components/admin/CampaignsDashboard";
 import QuoteRequestsPanel from "@/components/admin/QuoteRequestsPanel";
 import AudienceEditor from "@/components/admin/AudienceEditor";
@@ -86,20 +89,10 @@ const Admin = () => {
 
   // Insights state
   const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
+  const [editingMetricsCampaignId, setEditingMetricsCampaignId] = useState<string | null>(null);
   const [showInsightModal, setShowInsightModal] = useState(false);
   const { insights: currentCampaignInsights, upsertInsights, refresh: refreshInsights } = useCampaignInsights(editingCampaignId || undefined);
-  const [localInsight, setLocalInsight] = useState<Omit<CampaignInsight, 'id' | 'updated_at'>>({
-    campaign_id: '',
-    best_day: '',
-    peak_hour: '',
-    top_location: '',
-    primary_demo: '',
-    sentiment_pos: 80,
-    performance_score: 'A+',
-    recommedation_rate: 'Top 10%',
-    insight_summary: '',
-    performance_note: ''
-  });
+  const [localInsight, setLocalInsight] = useState<Omit<CampaignInsight, 'id' | 'updated_at'> | null>(null);
 
   // Supabase is now configured via environment variables
   const supabaseConfigured = isSupabaseConfigured();
@@ -269,7 +262,10 @@ const Admin = () => {
 
   const handleAddCampaign = async (e: React.FormEvent) => {
     e.preventDefault();
-    await addCampaign(newCampaign);
+    await addCampaign({
+      ...newCampaign,
+      accepted_at: new Date().toISOString()
+    });
     setNewCampaign({
       campaign_code: "",
       brand_email: "",
@@ -362,7 +358,8 @@ CREATE TABLE campaigns (
   budget DECIMAL(10,2) DEFAULT 0,
   video_result_url TEXT,
   notes TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  accepted_at TIMESTAMPTZ
 );
 
 -- Tabla de mejores posts
@@ -523,6 +520,7 @@ INSERT INTO testimonials (quote, brand, company) VALUES
   if (!session || !isAdmin) {
     return (
       <div className="min-h-screen bg-background">
+        <SEO title="Admin Login" description="Acceso restringido para administración de la plataforma." />
         <Navbar />
         <main className="pt-24 pb-16 px-4 min-h-[80vh] flex items-center">
           <div className="container mx-auto max-w-md">
@@ -674,6 +672,7 @@ WHERE email = '${session.user.email}';`}
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO title="Panel de Administración" description="Gestión centralizada de campañas, métricas e insights." />
       <Navbar />
       <main className="pt-24 pb-16 px-4">
         <div className="container mx-auto max-w-5xl">
@@ -940,6 +939,7 @@ ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS platform TEXT CHECK (platform IN 
 ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS campaign_type TEXT CHECK (campaign_type IN ('stories', 'reels', 'post', 'live', 'mixed'));
 ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS budget DECIMAL(10,2) DEFAULT 0;
 ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS accepted_at TIMESTAMPTZ;
 
 -- ============================================
 -- MIGRACIÓN: Añadir campos de imagen a testimonials
@@ -950,9 +950,6 @@ ALTER TABLE testimonials ADD COLUMN IF NOT EXISTS image_type TEXT CHECK (image_t
 -- ============================================
 -- MIGRACIÓN: Añadir Facebook a best_posts
 -- ============================================
--- Si ya tienes la constraint, primero elimínala:
--- ALTER TABLE best_posts DROP CONSTRAINT IF EXISTS best_posts_platform_check;
--- Luego crea la nueva:
 ALTER TABLE best_posts DROP CONSTRAINT IF EXISTS best_posts_platform_check;
 ALTER TABLE best_posts ADD CONSTRAINT best_posts_platform_check CHECK (platform IN ('instagram', 'tiktok', 'facebook'));
 
@@ -981,6 +978,7 @@ ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS platform TEXT CHECK (platform IN 
 ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS campaign_type TEXT CHECK (campaign_type IN ('stories', 'reels', 'post', 'live', 'mixed'));
 ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS budget DECIMAL(10,2) DEFAULT 0;
 ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS accepted_at TIMESTAMPTZ;
 
 -- Testimonials: imagen
 ALTER TABLE testimonials ADD COLUMN IF NOT EXISTS image_url TEXT;
@@ -1577,6 +1575,16 @@ INSERT INTO audience_age (age, percentage, order_index) VALUES ('18-24', 22, 0),
                             <Button
                               variant="outline"
                               size="sm"
+                              onClick={() => setEditingMetricsCampaignId(campaign.id)}
+                              className="border-primary/20 hover:bg-primary/5"
+                              title="Gestionar Métricas Reales"
+                            >
+                              <TrendingUp className="w-4 h-4 mr-2 text-primary" />
+                              Métricas
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
                               onClick={() => {
                                 setEditingCampaignId(campaign.id);
                                 if (campaign.insights) {
@@ -1608,8 +1616,9 @@ INSERT INTO audience_age (age, percentage, order_index) VALUES ('18-24', 22, 0),
                                 }
                                 setShowInsightModal(true);
                               }}
+                              className="border-primary/20 hover:bg-primary/5"
                             >
-                              <BarChart3 className="w-4 h-4 mr-1" />
+                              <BarChart3 className="w-4 h-4 mr-2 text-primary" />
                               Insights
                             </Button>
                             <Button
@@ -1898,6 +1907,14 @@ INSERT INTO audience_age (age, percentage, order_index) VALUES ('18-24', 22, 0),
             </TabsContent>
           </Tabs>
         </div>
+        {editingMetricsCampaignId && campaigns.find(c => c.id === editingMetricsCampaignId) && (
+          <EditMetricsModal
+            isOpen={!!editingMetricsCampaignId}
+            onClose={() => setEditingMetricsCampaignId(null)}
+            campaign={campaigns.find(c => c.id === editingMetricsCampaignId)!}
+            onSave={updateCampaign}
+          />
+        )}
       </main>
       <Footer />
     </div>

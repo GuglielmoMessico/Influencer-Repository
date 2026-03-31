@@ -7,10 +7,15 @@ import TopContent from "@/components/home/TopContent";
 import Services from "@/components/home/Services";
 import Testimonials from "@/components/home/Testimonials";
 import BrandLogos from "@/components/home/BrandLogos";
+import SEO from "@/components/SEO";
 
 const Index = () => {
   return (
     <div className="min-h-screen bg-background">
+      <SEO 
+        title="Inicio" 
+        description="Portal oficial de influencers y gestión de campañas digitales. Optimiza tu ROI con los mejores talentos."
+      />
       <Navbar />
       <main>
         <Hero />

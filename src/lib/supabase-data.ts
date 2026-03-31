@@ -440,26 +440,63 @@ export const getAllBrandClicksWithDetails = async (): Promise<{ campaignId: stri
   const client = getSupabaseClient();
   if (!client) return [];
 
-  // First get all campaigns
+  // FIXED: Aggregated fetch to avoid N+1 queries
+  // 1. Get all campaigns
   const { data: campaigns, error: campaignsError } = await client
     .from('campaigns')
     .select('id, brand_name');
 
-  if (campaignsError || !campaigns) return [];
+  if (campaignsError || !campaigns || campaigns.length === 0) return [];
 
-  // Then get click counts for each
-  const results = await Promise.all(
-    campaigns.map(async (campaign) => {
-      const clicks = await getBrandClicksForCampaign(campaign.id);
-      return {
-        campaignId: campaign.id,
-        brandName: campaign.brand_name,
-        clicks,
-      };
-    })
-  );
+  // 2. Get ALL clicks in ONE query instead of looping
+  const { data: allClicks, error: clicksError } = await client
+    .from('brand_clicks')
+    .select('campaign_id');
+
+  if (clicksError || !allClicks) return [];
+
+  // 3. Aggregate in JS (O(n) instead of O(n*m) queries)
+  const clickMap: Record<string, number> = {};
+  allClicks.forEach(click => {
+    clickMap[click.campaign_id] = (clickMap[click.campaign_id] || 0) + 1;
+  });
+
+  const results = campaigns.map((campaign) => ({
+    campaignId: campaign.id,
+    brandName: campaign.brand_name,
+    clicks: clickMap[campaign.id] || 0,
+  }));
 
   return results.filter(r => r.clicks > 0).sort((a, b) => b.clicks - a.clicks);
+};
+
+// Log audit action for security and traceability
+export const logAuditAction = async (params: {
+  action: string;
+  resource_type: string;
+  resource_id?: string;
+  old_values?: any;
+  new_values?: any;
+}) => {
+  const client = getSupabaseClient();
+  if (!client) return;
+
+  try {
+    // This will fail silently if the table audit_logs doesn't exist yet
+    // which is fine as the user needs to apply the SQL migration
+    const { data: { user } } = await client.auth.getUser();
+    
+    await client.from('audit_logs').insert({
+      user_id: user?.id,
+      action: params.action,
+      resource_type: params.resource_type,
+      resource_id: params.resource_id,
+      old_values: params.old_values,
+      new_values: params.new_values,
+    });
+  } catch (error) {
+    console.warn('Audit log failed (likely table missing):', error);
+  }
 };
 
 // Get total brand clicks across all campaigns
@@ -657,6 +694,7 @@ export const convertQuoteToCampaign = async (quote: QuoteRequest): Promise<{ suc
     video_result_url: "",
     notes: quote.notes || "",
     is_active: true,
+    accepted_at: new Date().toISOString(),
     source_quote_request_id: quote.id
   };
 

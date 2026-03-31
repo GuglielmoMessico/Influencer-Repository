@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import Logo from "./Logo";
-import { Instagram, Music2, Facebook } from "lucide-react";
+import { Instagram, Music2, Facebook, Twitter, MessageSquareQuote } from "lucide-react";
 import type { ProfileConfig } from "@/lib/data";
 import { isSupabaseConfigured } from "@/lib/supabase-client";
 import { getProfileFromSupabase } from "@/lib/supabase-data";
@@ -73,6 +73,28 @@ const Footer = () => {
               >
                 <Facebook className="w-4 h-4 md:w-5 md:h-5" />
                 <span className="hidden sm:inline">Facebook</span>
+              </a>
+            )}
+            {profile?.socialLinks?.x && (
+              <a 
+                href={profile.socialLinks.x} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 hover:opacity-80 transition-opacity text-sm md:text-base"
+              >
+                <Twitter className="w-4 h-4 md:w-5 md:h-5" />
+                <span className="hidden sm:inline">X</span>
+              </a>
+            )}
+            {profile?.socialLinks?.threads && (
+              <a 
+                href={profile.socialLinks.threads} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 hover:opacity-80 transition-opacity text-sm md:text-base"
+              >
+                <MessageSquareQuote className="w-4 h-4 md:w-5 md:h-5" />
+                <span className="hidden sm:inline">Threads</span>
               </a>
             )}
           </div>

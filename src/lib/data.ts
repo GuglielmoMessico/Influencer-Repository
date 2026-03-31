@@ -38,6 +38,7 @@ export interface Campaign {
   // Métricas reales por plataforma (nuevos)
   real_reach_instagram?: number;
   real_reach_tiktok?: number;
+  real_reach_facebook?: number;
   real_reach_x?: number;
   real_reach_threads?: number;
   real_impressions?: number;
@@ -90,7 +91,7 @@ export interface BrandClick {
 
 export interface BestPost {
   id: string;
-  platform: 'instagram' | 'tiktok' | 'facebook';
+  platform: 'instagram' | 'tiktok' | 'facebook' | 'x' | 'threads';
   post_url: string;
   thumbnail?: string; // Ahora opcional - se muestra placeholder si no existe
   views_count: number;
