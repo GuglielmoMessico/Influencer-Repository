@@ -22,33 +22,42 @@ import {
   addHeroVideoToSupabase,
   updateHeroVideoInSupabase,
   deleteHeroVideoFromSupabase,
+  getPlatformIntegrationsFromSupabase,
+  upsertPlatformIntegrationInSupabase,
   isSupabaseConfigured,
   logAuditAction
 } from '@/lib/supabase-data';
+import { useCreator } from '@/context/CreatorContext';
 
 // Hook for stats - Optimized with React Query
 export const useStats = () => {
   const queryClient = useQueryClient();
+  const { creatorId } = useCreator();
   
   const { data: stats, isLoading: loading, refetch } = useQuery({
-    queryKey: ['stats'],
+    queryKey: ['stats', creatorId],
     queryFn: async () => {
-      if (isSupabaseConfigured()) {
-        return await getStatsFromSupabase();
+      if (isSupabaseConfigured() && creatorId) {
+        return await getStatsFromSupabase(creatorId);
       }
       return null;
     },
+    enabled: !!creatorId,
   });
 
   const updateStatsMutation = useMutation({
-    mutationFn: updateStatsInSupabase,
+    mutationFn: (updates: Partial<Stats>) => {
+      if (!creatorId) throw new Error("No creator selected");
+      return updateStatsInSupabase(creatorId, updates);
+    },
     onSuccess: (updated) => {
       if (updated) {
-        queryClient.setQueryData(['stats'], updated);
+        queryClient.setQueryData(['stats', creatorId], updated);
         logAuditAction({
           action: 'update_stats',
           resource_type: 'stats',
-          new_values: updated
+          new_values: updated,
+          creator_id: creatorId
         });
       }
     }
@@ -56,7 +65,7 @@ export const useStats = () => {
 
   return { 
     stats: stats || null, 
-    loading, 
+    loading: loading && !!creatorId, 
     updateStats: updateStatsMutation.mutateAsync, 
     refresh: refetch, 
     useSupabase: isSupabaseConfigured() 
@@ -66,28 +75,34 @@ export const useStats = () => {
 // Hook for campaigns - Optimized with React Query
 export const useCampaigns = () => {
   const queryClient = useQueryClient();
+  const { creatorId } = useCreator();
 
   const { data: campaigns, isLoading: loading, refetch } = useQuery({
-    queryKey: ['campaigns'],
+    queryKey: ['campaigns', creatorId],
     queryFn: async () => {
-      if (isSupabaseConfigured()) {
-        const data = await getCampaignsFromSupabase();
+      if (isSupabaseConfigured() && creatorId) {
+        const data = await getCampaignsFromSupabase(creatorId);
         return data || [];
       }
       return [];
     },
+    enabled: !!creatorId,
   });
 
   const addCampaignMutation = useMutation({
-    mutationFn: addCampaignToSupabase,
+    mutationFn: (campaign: Omit<Campaign, 'id' | 'created_at'>) => {
+      if (!creatorId) throw new Error("No creator selected");
+      return addCampaignToSupabase(creatorId, campaign);
+    },
     onSuccess: (added) => {
       if (added) {
-        queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+        queryClient.invalidateQueries({ queryKey: ['campaigns', creatorId] });
         logAuditAction({
           action: 'create_campaign',
           resource_type: 'campaign',
           resource_id: added.id,
-          new_values: added
+          new_values: added,
+          creator_id: creatorId
         });
       }
     }
@@ -98,12 +113,13 @@ export const useCampaigns = () => {
       updateCampaignInSupabase(id, updates),
     onSuccess: (updated) => {
       if (updated) {
-        queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+        queryClient.invalidateQueries({ queryKey: ['campaigns', creatorId] });
         logAuditAction({
           action: 'update_campaign',
           resource_type: 'campaign',
           resource_id: updated.id,
-          new_values: updated
+          new_values: updated,
+          creator_id: creatorId
         });
       }
     }
@@ -112,18 +128,19 @@ export const useCampaigns = () => {
   const removeCampaignMutation = useMutation({
     mutationFn: deleteCampaignFromSupabase,
     onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+      queryClient.invalidateQueries({ queryKey: ['campaigns', creatorId] });
       logAuditAction({
         action: 'delete_campaign',
         resource_type: 'campaign',
-        resource_id: id
+        resource_id: id,
+        creator_id: creatorId
       });
     }
   });
 
   return { 
     campaigns: campaigns || [], 
-    loading, 
+    loading: loading && !!creatorId, 
     addCampaign: addCampaignMutation.mutateAsync, 
     updateCampaign: (id: string, updates: Partial<Campaign>) => updateCampaignMutation.mutateAsync({ id, updates }), 
     removeCampaign: removeCampaignMutation.mutateAsync, 
@@ -135,28 +152,34 @@ export const useCampaigns = () => {
 // Hook for best posts - Optimized with React Query
 export const useBestPosts = () => {
   const queryClient = useQueryClient();
+  const { creatorId } = useCreator();
 
   const { data: posts, isLoading: loading, refetch } = useQuery({
-    queryKey: ['best_posts'],
+    queryKey: ['best_posts', creatorId],
     queryFn: async () => {
-      if (isSupabaseConfigured()) {
-        const data = await getBestPostsFromSupabase();
+      if (isSupabaseConfigured() && creatorId) {
+        const data = await getBestPostsFromSupabase(creatorId);
         return data || [];
       }
       return [];
     },
+    enabled: !!creatorId,
   });
 
   const addPostMutation = useMutation({
-    mutationFn: addBestPostToSupabase,
+    mutationFn: (post: Omit<BestPost, 'id' | 'created_at'>) => {
+      if (!creatorId) throw new Error("No creator selected");
+      return addBestPostToSupabase(creatorId, post);
+    },
     onSuccess: (added) => {
       if (added) {
-        queryClient.invalidateQueries({ queryKey: ['best_posts'] });
+        queryClient.invalidateQueries({ queryKey: ['best_posts', creatorId] });
         logAuditAction({
           action: 'create_best_post',
           resource_type: 'best_post',
           resource_id: added.id,
-          new_values: added
+          new_values: added,
+          creator_id: creatorId
         });
       }
     }
@@ -165,18 +188,19 @@ export const useBestPosts = () => {
   const removePostMutation = useMutation({
     mutationFn: deleteBestPostFromSupabase,
     onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ['best_posts'] });
+      queryClient.invalidateQueries({ queryKey: ['best_posts', creatorId] });
       logAuditAction({
         action: 'delete_best_post',
         resource_type: 'best_post',
-        resource_id: id
+        resource_id: id,
+        creator_id: creatorId
       });
     }
   });
 
   return { 
     posts: posts || [], 
-    loading, 
+    loading: loading && !!creatorId, 
     addPost: addPostMutation.mutateAsync, 
     removePost: removePostMutation.mutateAsync, 
     refresh: refetch, 
@@ -185,9 +209,9 @@ export const useBestPosts = () => {
 };
 
 // Function to get campaign by code and email
-export const getCampaignByCodeAndEmail = async (code: string, email: string): Promise<Campaign | null> => {
-  if (isSupabaseConfigured()) {
-    return await getCampaignByCodeAndEmailFromSupabase(code, email);
+export const getCampaignByCodeAndEmail = async (code: string, email: string, creatorId: string): Promise<Campaign | null> => {
+  if (isSupabaseConfigured() && creatorId) {
+    return await getCampaignByCodeAndEmailFromSupabase(code, email, creatorId);
   }
   return null;
 };
@@ -195,44 +219,54 @@ export const getCampaignByCodeAndEmail = async (code: string, email: string): Pr
 // Hook for audience demographics - Optimized with React Query
 export const useAudienceData = () => {
   const queryClient = useQueryClient();
+  const { creatorId } = useCreator();
 
   const { data: audience, isLoading: loading, refetch } = useQuery({
-    queryKey: ['audience_data'],
+    queryKey: ['audience_data', creatorId],
     queryFn: async () => {
-      if (isSupabaseConfigured()) {
+      if (isSupabaseConfigured() && creatorId) {
         const [gender, age] = await Promise.all([
-          getAudienceGenderFromSupabase(),
-          getAudienceAgeFromSupabase()
+          getAudienceGenderFromSupabase(creatorId),
+          getAudienceAgeFromSupabase(creatorId)
         ]);
         return { gender: gender || [], age: age || [] };
       }
       return { gender: [], age: [] };
     },
+    enabled: !!creatorId,
   });
 
   const updateGenderMutation = useMutation({
-    mutationFn: updateAudienceGenderInSupabase,
+    mutationFn: (genderData: AudienceGender[]) => {
+      if (!creatorId) throw new Error("No creator selected");
+      return updateAudienceGenderInSupabase(creatorId, genderData);
+    },
     onSuccess: (success, newData) => {
       if (success) {
-        queryClient.invalidateQueries({ queryKey: ['audience_data'] });
+        queryClient.invalidateQueries({ queryKey: ['audience_data', creatorId] });
         logAuditAction({
           action: 'update_audience_gender',
           resource_type: 'audience',
-          new_values: newData
+          new_values: newData,
+          creator_id: creatorId
         });
       }
     }
   });
 
   const updateAgeMutation = useMutation({
-    mutationFn: updateAudienceAgeInSupabase,
+    mutationFn: (ageData: AudienceAge[]) => {
+      if (!creatorId) throw new Error("No creator selected");
+      return updateAudienceAgeInSupabase(creatorId, ageData);
+    },
     onSuccess: (success, newData) => {
       if (success) {
-        queryClient.invalidateQueries({ queryKey: ['audience_data'] });
+        queryClient.invalidateQueries({ queryKey: ['audience_data', creatorId] });
         logAuditAction({
           action: 'update_audience_age',
           resource_type: 'audience',
-          new_values: newData
+          new_values: newData,
+          creator_id: creatorId
         });
       }
     }
@@ -291,28 +325,34 @@ export const useCampaignInsights = (campaignId?: string) => {
 // Hook for hero videos - Optimized with React Query
 export const useHeroVideos = () => {
   const queryClient = useQueryClient();
+  const { creatorId } = useCreator();
 
   const { data: videos, isLoading: loading, refetch } = useQuery({
-    queryKey: ['hero_videos'],
+    queryKey: ['hero_videos', creatorId],
     queryFn: async () => {
-      if (isSupabaseConfigured()) {
-        const data = await getHeroVideosFromSupabase();
+      if (isSupabaseConfigured() && creatorId) {
+        const data = await getHeroVideosFromSupabase(creatorId);
         return (data || []).sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
       }
       return [];
     },
+    enabled: !!creatorId,
   });
 
   const addVideoMutation = useMutation({
-    mutationFn: addHeroVideoToSupabase,
+    mutationFn: (video: Omit<HeroVideo, 'id' | 'created_at'>) => {
+      if (!creatorId) throw new Error("No creator selected");
+      return addHeroVideoToSupabase(creatorId, video);
+    },
     onSuccess: (added) => {
       if (added) {
-        queryClient.invalidateQueries({ queryKey: ['hero_videos'] });
+        queryClient.invalidateQueries({ queryKey: ['hero_videos', creatorId] });
         logAuditAction({
           action: 'add_hero_video',
           resource_type: 'hero_video',
           resource_id: added.id,
-          new_values: added
+          new_values: added,
+          creator_id: creatorId
         });
       }
     }
@@ -323,12 +363,13 @@ export const useHeroVideos = () => {
       updateHeroVideoInSupabase(id, updates),
     onSuccess: (updated) => {
       if (updated) {
-        queryClient.invalidateQueries({ queryKey: ['hero_videos'] });
+        queryClient.invalidateQueries({ queryKey: ['hero_videos', creatorId] });
         logAuditAction({
           action: 'update_hero_video',
           resource_type: 'hero_video',
           resource_id: updated.id,
-          new_values: updated
+          new_values: updated,
+          creator_id: creatorId
         });
       }
     }
@@ -337,11 +378,12 @@ export const useHeroVideos = () => {
   const removeVideoMutation = useMutation({
     mutationFn: deleteHeroVideoFromSupabase,
     onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ['hero_videos'] });
+      queryClient.invalidateQueries({ queryKey: ['hero_videos', creatorId] });
       logAuditAction({
         action: 'delete_hero_video',
         resource_type: 'hero_video',
-        resource_id: id
+        resource_id: id,
+        creator_id: creatorId
       });
     }
   });
@@ -355,7 +397,7 @@ export const useHeroVideos = () => {
     toggleVideoActive: async (id: string, active: boolean) => {
       const result = await updateHeroVideoInSupabase(id, { is_active: active });
       if (result) {
-        queryClient.invalidateQueries({ queryKey: ['hero_videos'] });
+        queryClient.invalidateQueries({ queryKey: ['hero_videos', creatorId] });
         return true;
       }
       return false;
@@ -402,46 +444,51 @@ export const resolveCampaignMetrics = (campaign: Campaign) => {
 // Hook for platform integrations (Tokens) - Optimized with React Query
 export const usePlatformIntegrations = () => {
   const queryClient = useQueryClient();
+  const { creatorId } = useCreator();
 
   const { data: integrations, isLoading: loading, refetch } = useQuery({
-    queryKey: ['platform_integrations'],
+    queryKey: ['platform_integrations', creatorId],
     queryFn: async () => {
-      if (isSupabaseConfigured()) {
-        const { data, error } = await (await import('@/lib/supabase-data')).supabase
-          .from('api_integrations')
-          .select('*');
-        if (error) throw error;
-        return data || [];
+      if (isSupabaseConfigured() && creatorId) {
+        return await getPlatformIntegrationsFromSupabase(creatorId);
       }
       return [];
     },
+    enabled: !!creatorId,
   });
 
   const updateIntegrationMutation = useMutation({
     mutationFn: async ({ platform, token, expires_at }: { platform: string; token: string; expires_at?: string }) => {
-      const { data, error } = await (await import('@/lib/supabase-data')).supabase
-        .from('api_integrations')
-        .upsert({ 
-          platform, 
-          access_token: token,
-          expires_at,
-          updated_at: new Date().toISOString()
-        })
-        .select()
-        .single();
-      if (error) throw error;
-      return data;
+      if (!creatorId) throw new Error("No creator selected");
+      return await upsertPlatformIntegrationInSupabase(creatorId, platform, token, expires_at);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['platform_integrations'] });
+      queryClient.invalidateQueries({ queryKey: ['platform_integrations', creatorId] });
+      logAuditAction({
+        action: 'save_platform_integration',
+        resource_type: 'api_integration',
+        creator_id: creatorId
+      });
     }
   });
 
   return {
     integrations: integrations || [],
-    loading,
+    loading: loading && !!creatorId,
     saveToken: (platform: string, token: string, expires_at?: string) => 
       updateIntegrationMutation.mutateAsync({ platform, token, expires_at }),
-    refresh: refetch
+    refresh: refetch,
+    useSupabase: isSupabaseConfigured()
   };
+};
+
+export const useAllCreators = () => {
+  return useQuery({
+    queryKey: ['all_creators'],
+    queryFn: async () => {
+      const { getCreators } = await import('@/lib/supabase-data');
+      return await getCreators();
+    },
+    staleTime: 60 * 60 * 1000, // 1 hour
+  });
 };

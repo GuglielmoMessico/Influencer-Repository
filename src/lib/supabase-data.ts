@@ -1,10 +1,14 @@
 // Supabase data operations - used when Supabase is configured
 import { getSupabaseClient, isSupabaseConfigured } from './supabase-client';
-import type { Stats, Campaign, BestPost, ProfileConfig, Testimonial, WorkFormat, BrandClick, CampaignInsight, HeroVideo } from './data';
+import type { Stats, Campaign, BestPost, ProfileConfig, Testimonial, WorkFormat, BrandClick, CampaignInsight, HeroVideo, Creator, AudienceAge, AudienceGender, AudienceData } from './data';
+
+// Export supabase client for hooks that need direct access
+export const supabase = getSupabaseClient()!;
 
 // Quote Request type
 export interface QuoteRequest {
   id?: string;
+  creator_id?: string;
   brand_name: string;
   brand_email: string;
   brand_whatsapp?: string;
@@ -32,19 +36,66 @@ export interface QuoteRequest {
   created_at?: string;
 }
 
+// Creator operations
+export const getCreatorBySlug = async (slug: string): Promise<Creator | null> => {
+  const client = getSupabaseClient();
+  if (!client) return null;
+
+  const { data, error } = await client
+    .from('creators')
+    .select('*')
+    .eq('slug', slug)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data as Creator;
+};
+
+export const getCreatorById = async (id: string): Promise<Creator | null> => {
+  const client = getSupabaseClient();
+  if (!client) return null;
+
+  const { data, error } = await client
+    .from('creators')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data as Creator;
+};
+
+export const getCreators = async (): Promise<Creator[]> => {
+  const client = getSupabaseClient();
+  if (!client) return [];
+
+  const { data, error } = await client
+    .from('creators')
+    .select('*')
+    .eq('is_active', true)
+    .order('display_name');
+
+  if (error || !data) return [];
+  return data as Creator[];
+};
+
 // Stats operations
-export const getStatsFromSupabase = async (): Promise<Stats | null> => {
+export const getStatsFromSupabase = async (creatorId: string): Promise<Stats | null> => {
   const client = getSupabaseClient();
   if (!client) return null;
 
   const { data, error } = await client
     .from('stats')
     .select('*')
+    .eq('creator_id', creatorId)
     .maybeSingle();
 
   if (error || !data) return null;
 
   return {
+    id: data.id,
+    creator_id: data.creator_id,
     instagram_followers: data.instagram_followers,
     tiktok_followers: data.tiktok_followers,
     total_views: data.total_views,
@@ -53,17 +104,21 @@ export const getStatsFromSupabase = async (): Promise<Stats | null> => {
   };
 };
 
-export const updateStatsInSupabase = async (stats: Partial<Stats>): Promise<Stats | null> => {
+export const updateStatsInSupabase = async (creatorId: string, stats: Partial<Stats>): Promise<Stats | null> => {
   const client = getSupabaseClient();
   if (!client) return null;
 
   const updateData = {
     ...stats,
+    creator_id: creatorId,
     last_updated: new Date().toISOString(),
   };
 
   // Try to update existing row, or insert if none exists
-  const { data: existing } = await client.from('stats').select('id').limit(1);
+  const { data: existing } = await client.from('stats')
+    .select('id')
+    .eq('creator_id', creatorId)
+    .limit(1);
   
   if (existing && existing.length > 0) {
     const { data, error } = await client
@@ -88,13 +143,14 @@ export const updateStatsInSupabase = async (stats: Partial<Stats>): Promise<Stat
 };
 
 // Campaigns operations
-export const getCampaignsFromSupabase = async (): Promise<Campaign[] | null> => {
+export const getCampaignsFromSupabase = async (creatorId: string): Promise<Campaign[] | null> => {
   const client = getSupabaseClient();
   if (!client) return null;
 
   const { data, error } = await client
     .from('campaigns')
     .select('*')
+    .eq('creator_id', creatorId)
     .order('created_at', { ascending: false });
 
   if (error) return null;
@@ -103,7 +159,8 @@ export const getCampaignsFromSupabase = async (): Promise<Campaign[] | null> => 
 
 export const getCampaignByCodeAndEmailFromSupabase = async (
   code: string, 
-  email: string
+  email: string,
+  creatorId: string
 ): Promise<Campaign | null> => {
   const client = getSupabaseClient();
   if (!client) return null;
@@ -111,6 +168,7 @@ export const getCampaignByCodeAndEmailFromSupabase = async (
   const { data, error } = await client
     .from('campaigns')
     .select('*, campaign_insights(*)')
+    .eq('creator_id', creatorId)
     .ilike('campaign_code', code)
     .ilike('brand_email', email)
     .maybeSingle();
@@ -129,6 +187,7 @@ export const getCampaignByCodeAndEmailFromSupabase = async (
 };
 
 export const addCampaignToSupabase = async (
+  creatorId: string,
   campaign: Omit<Campaign, 'id'>
 ): Promise<Campaign | null> => {
   const client = getSupabaseClient();
@@ -136,7 +195,7 @@ export const addCampaignToSupabase = async (
 
   const { data, error } = await client
     .from('campaigns')
-    .insert(campaign)
+    .insert({ ...campaign, creator_id: creatorId })
     .select()
     .maybeSingle();
 
@@ -175,13 +234,14 @@ export const deleteCampaignFromSupabase = async (id: string): Promise<boolean> =
 };
 
 // Best Posts operations
-export const getBestPostsFromSupabase = async (): Promise<BestPost[] | null> => {
+export const getBestPostsFromSupabase = async (creatorId: string): Promise<BestPost[] | null> => {
   const client = getSupabaseClient();
   if (!client) return null;
 
   const { data, error } = await client
     .from('best_posts')
     .select('*')
+    .eq('creator_id', creatorId)
     .order('views_count', { ascending: false });
 
   if (error) return null;
@@ -189,6 +249,7 @@ export const getBestPostsFromSupabase = async (): Promise<BestPost[] | null> => 
 };
 
 export const addBestPostToSupabase = async (
+  creatorId: string,
   post: Omit<BestPost, 'id'>
 ): Promise<BestPost | null> => {
   const client = getSupabaseClient();
@@ -196,7 +257,7 @@ export const addBestPostToSupabase = async (
 
   const { data, error } = await client
     .from('best_posts')
-    .insert(post)
+    .insert({ ...post, creator_id: creatorId })
     .select()
     .maybeSingle();
 
@@ -217,17 +278,20 @@ export const deleteBestPostFromSupabase = async (id: string): Promise<boolean> =
 };
 
 // Profile operations
-export const getProfileFromSupabase = async (): Promise<ProfileConfig | null> => {
+export const getProfileFromSupabase = async (creatorId: string): Promise<ProfileConfig | null> => {
   const client = getSupabaseClient();
   if (!client) return null;
 
   const { data, error } = await client
     .from('profile')
     .select('*')
+    .eq('creator_id', creatorId)
     .maybeSingle();
 
   if (error || !data) return null;
   return {
+    id: data.id,
+    creator_id: data.creator_id,
     name: data.name,
     tagline: data.tagline,
     description: data.description,
@@ -239,11 +303,12 @@ export const getProfileFromSupabase = async (): Promise<ProfileConfig | null> =>
   };
 };
 
-export const saveProfileToSupabase = async (profile: ProfileConfig): Promise<ProfileConfig | null> => {
+export const saveProfileToSupabase = async (creatorId: string, profile: ProfileConfig): Promise<ProfileConfig | null> => {
   const client = getSupabaseClient();
   if (!client) return null;
 
   const profileData = {
+    creator_id: creatorId,
     name: profile.name,
     tagline: profile.tagline,
     description: profile.description,
@@ -255,7 +320,10 @@ export const saveProfileToSupabase = async (profile: ProfileConfig): Promise<Pro
   };
 
   // Try to update existing row, or insert if none exists
-  const { data: existing } = await client.from('profile').select('id').limit(1);
+  const { data: existing } = await client.from('profile')
+    .select('id')
+    .eq('creator_id', creatorId)
+    .limit(1);
   
   if (existing && existing.length > 0) {
     const { data, error } = await client
@@ -280,13 +348,14 @@ export const saveProfileToSupabase = async (profile: ProfileConfig): Promise<Pro
 };
 
 // Testimonials operations
-export const getTestimonialsFromSupabase = async (): Promise<Testimonial[] | null> => {
+export const getTestimonialsFromSupabase = async (creatorId: string): Promise<Testimonial[] | null> => {
   const client = getSupabaseClient();
   if (!client) return null;
 
   const { data, error } = await client
     .from('testimonials')
     .select('*')
+    .eq('creator_id', creatorId)
     .order('created_at', { ascending: true });
 
   if (error) return null;
@@ -294,6 +363,7 @@ export const getTestimonialsFromSupabase = async (): Promise<Testimonial[] | nul
 };
 
 export const addTestimonialToSupabase = async (
+  creatorId: string,
   testimonial: Omit<Testimonial, 'id'>
 ): Promise<Testimonial | null> => {
   const client = getSupabaseClient();
@@ -301,7 +371,7 @@ export const addTestimonialToSupabase = async (
 
   const { data, error } = await client
     .from('testimonials')
-    .insert(testimonial)
+    .insert({ ...testimonial, creator_id: creatorId })
     .select()
     .maybeSingle();
 
@@ -340,13 +410,14 @@ export const deleteTestimonialFromSupabase = async (id: string): Promise<boolean
 };
 
 // Work Formats operations
-export const getWorkFormatsFromSupabase = async (): Promise<WorkFormat[] | null> => {
+export const getWorkFormatsFromSupabase = async (creatorId: string): Promise<WorkFormat[] | null> => {
   const client = getSupabaseClient();
   if (!client) return null;
 
   const { data, error } = await client
     .from('work_formats')
     .select('*')
+    .eq('creator_id', creatorId)
     .order('order_index', { ascending: true });
 
   if (error) return null;
@@ -354,6 +425,7 @@ export const getWorkFormatsFromSupabase = async (): Promise<WorkFormat[] | null>
 };
 
 export const addWorkFormatToSupabase = async (
+  creatorId: string,
   format: Omit<WorkFormat, 'id'>
 ): Promise<WorkFormat | null> => {
   const client = getSupabaseClient();
@@ -361,7 +433,7 @@ export const addWorkFormatToSupabase = async (
 
   const { data, error } = await client
     .from('work_formats')
-    .insert(format)
+    .insert({ ...format, creator_id: creatorId })
     .select()
     .maybeSingle();
 
@@ -470,43 +542,15 @@ export const getAllBrandClicksWithDetails = async (): Promise<{ campaignId: stri
   return results.filter(r => r.clicks > 0).sort((a, b) => b.clicks - a.clicks);
 };
 
-// Log audit action for security and traceability
-export const logAuditAction = async (params: {
-  action: string;
-  resource_type: string;
-  resource_id?: string;
-  old_values?: any;
-  new_values?: any;
-}) => {
-  const client = getSupabaseClient();
-  if (!client) return;
-
-  try {
-    // This will fail silently if the table audit_logs doesn't exist yet
-    // which is fine as the user needs to apply the SQL migration
-    const { data: { user } } = await client.auth.getUser();
-    
-    await client.from('audit_logs').insert({
-      user_id: user?.id,
-      action: params.action,
-      resource_type: params.resource_type,
-      resource_id: params.resource_id,
-      old_values: params.old_values,
-      new_values: params.new_values,
-    });
-  } catch (error) {
-    console.warn('Audit log failed (likely table missing):', error);
-  }
-};
-
 // Get total brand clicks across all campaigns
-export const getTotalBrandClicks = async (): Promise<number> => {
+export const getTotalBrandClicks = async (creatorId: string): Promise<number> => {
   const client = getSupabaseClient();
   if (!client) return 0;
 
   const { count, error } = await client
     .from('brand_clicks')
-    .select('*', { count: 'exact', head: true });
+    .select('*, campaigns!inner(creator_id)', { count: 'exact', head: true })
+    .eq('campaigns.creator_id', creatorId);
 
   if (error) return 0;
   return count || 0;
@@ -518,6 +562,7 @@ export const getTotalBrandClicks = async (): Promise<number> => {
 
 // Submit a new quote request (public - no auth required)
 export const submitQuoteRequest = async (
+  creatorId: string,
   data: Omit<QuoteRequest, 'id' | 'created_at' | 'status'>
 ): Promise<QuoteRequest | null> => {
   const client = getSupabaseClient();
@@ -526,6 +571,7 @@ export const submitQuoteRequest = async (
   const { data: result, error } = await client
     .from('quote_requests')
     .insert({
+      creator_id: creatorId,
       brand_name: data.brand_name,
       brand_email: data.brand_email,
       brand_whatsapp: data.brand_whatsapp || null,
@@ -561,13 +607,14 @@ export const submitQuoteRequest = async (
 };
 
 // Get all quote requests (admin only)
-export const getQuoteRequestsFromSupabase = async (): Promise<QuoteRequest[] | null> => {
+export const getQuoteRequestsFromSupabase = async (creatorId: string): Promise<QuoteRequest[] | null> => {
   const client = getSupabaseClient();
   if (!client) return null;
 
   const { data, error } = await client
     .from('quote_requests')
     .select('*')
+    .eq('creator_id', creatorId)
     .order('created_at', { ascending: false });
 
   if (error) return null;
@@ -717,33 +764,15 @@ export const convertQuoteToCampaign = async (quote: QuoteRequest): Promise<{ suc
 // Audience Demographics Operations
 // ============================================
 
-export interface AudienceGender {
-  id?: string;
-  name: string;
-  value: number;
-}
-
-export interface AudienceAge {
-  id?: string;
-  age: string;
-  percentage: number;
-  order_index: number;
-}
-
-export interface AudienceData {
-  gender: AudienceGender[];
-  age: AudienceAge[];
-  summary_text?: string; // e.g., "58% entre 25-38 años"
-}
-
 // Get audience gender data
-export const getAudienceGenderFromSupabase = async (): Promise<AudienceGender[] | null> => {
+export const getAudienceGenderFromSupabase = async (creatorId: string): Promise<AudienceGender[] | null> => {
   const client = getSupabaseClient();
   if (!client) return null;
 
   const { data, error } = await client
     .from('audience_gender')
     .select('*')
+    .eq('creator_id', creatorId)
     .order('name', { ascending: true });
 
   if (error) return null;
@@ -751,13 +780,14 @@ export const getAudienceGenderFromSupabase = async (): Promise<AudienceGender[] 
 };
 
 // Get audience age data
-export const getAudienceAgeFromSupabase = async (): Promise<AudienceAge[] | null> => {
+export const getAudienceAgeFromSupabase = async (creatorId: string): Promise<AudienceAge[] | null> => {
   const client = getSupabaseClient();
   if (!client) return null;
 
   const { data, error } = await client
     .from('audience_age')
     .select('*')
+    .eq('creator_id', creatorId)
     .order('order_index', { ascending: true });
 
   if (error) return null;
@@ -766,36 +796,38 @@ export const getAudienceAgeFromSupabase = async (): Promise<AudienceAge[] | null
 
 // Update audience gender data
 export const updateAudienceGenderInSupabase = async (
+  creatorId: string,
   genderData: AudienceGender[]
 ): Promise<boolean> => {
   const client = getSupabaseClient();
   if (!client) return false;
 
   // Delete all existing and insert new
-  await client.from('audience_gender').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  await client.from('audience_gender').delete().eq('creator_id', creatorId);
   
   const { error } = await client
     .from('audience_gender')
-    .insert(genderData.map(g => ({ name: g.name, value: g.value })));
+    .insert(genderData.map(g => ({ ...g, creator_id: creatorId })));
 
   return !error;
 };
 
 // Update audience age data
 export const updateAudienceAgeInSupabase = async (
+  creatorId: string,
   ageData: AudienceAge[]
 ): Promise<boolean> => {
   const client = getSupabaseClient();
   if (!client) return false;
 
   // Delete all existing and insert new
-  await client.from('audience_age').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  await client.from('audience_age').delete().eq('creator_id', creatorId);
   
   const { error } = await client
     .from('audience_age')
     .insert(ageData.map((a, idx) => ({ 
-      age: a.age, 
-      percentage: a.percentage,
+      ...a,
+      creator_id: creatorId,
       order_index: idx 
     })));
 
@@ -843,13 +875,14 @@ export const upsertCampaignInsightsInSupabase = async (
 // Hero Videos Operations
 // ============================================
 
-export const getHeroVideosFromSupabase = async (): Promise<HeroVideo[] | null> => {
+export const getHeroVideosFromSupabase = async (creatorId: string): Promise<HeroVideo[] | null> => {
   const client = getSupabaseClient();
   if (!client) return null;
 
   const { data, error } = await client
     .from('hero_videos')
     .select('*')
+    .eq('creator_id', creatorId)
     .eq('is_active', true)
     .order('order_index', { ascending: true });
 
@@ -876,6 +909,7 @@ export const updateHeroVideoInSupabase = async (
 };
 
 export const addHeroVideoToSupabase = async (
+  creatorId: string,
   video: Omit<HeroVideo, 'id' | 'created_at'>
 ): Promise<HeroVideo | null> => {
   const client = getSupabaseClient();
@@ -883,7 +917,7 @@ export const addHeroVideoToSupabase = async (
 
   const { data, error } = await client
     .from('hero_videos')
-    .insert(video)
+    .insert({ ...video, creator_id: creatorId })
     .select()
     .maybeSingle();
 
@@ -901,6 +935,81 @@ export const deleteHeroVideoFromSupabase = async (id: string): Promise<boolean> 
     .eq('id', id);
 
   return !error;
+};
+
+// ============================================
+// Platform Integrations Operations
+// ============================================
+
+export const getPlatformIntegrationsFromSupabase = async (creatorId: string) => {
+  const client = getSupabaseClient();
+  if (!client) return [];
+
+  const { data, error } = await client
+    .from('api_integrations')
+    .select('*')
+    .eq('creator_id', creatorId);
+
+  if (error) {
+    console.error('Error fetching integrations:', error);
+    return [];
+  }
+  return data || [];
+};
+
+export const upsertPlatformIntegrationInSupabase = async (
+  creatorId: string,
+  platform: string,
+  token: string,
+  expiresAt?: string
+) => {
+  const client = getSupabaseClient();
+  if (!client) return null;
+
+  const { data, error } = await client
+    .from('api_integrations')
+    .upsert({
+      creator_id: creatorId,
+      platform,
+      access_token: token,
+      expires_at: expiresAt,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'creator_id,platform' })
+    .select()
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error upserting integration:', error);
+    return null;
+  }
+  return data;
+};
+
+// ============================================
+// Audit Logs Operations
+// ============================================
+
+export const logAuditAction = async (data: {
+  action: string;
+  resource_type: string;
+  resource_id?: string;
+  old_values?: any;
+  new_values?: any;
+  creator_id?: string | null;
+}) => {
+  const client = getSupabaseClient();
+  if (!client) return null;
+
+  const { error } = await client
+    .from('audit_logs')
+    .insert([{
+      ...data,
+      created_at: new Date().toISOString()
+    }]);
+
+  if (error) {
+    console.error('Error logging audit action:', error);
+  }
 };
 
 // Hybrid data fetching - tries Supabase first, falls back to localStorage

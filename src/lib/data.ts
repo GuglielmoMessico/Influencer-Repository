@@ -1,7 +1,18 @@
 // Data types for Yefer Showw Media Kit
 // All data comes from Supabase - NO localStorage
 
+export interface Creator {
+  id: string;
+  slug: string;
+  display_name: string;
+  owner_id: string;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface Stats {
+  id?: string;
+  creator_id?: string;
   instagram_followers: number;
   tiktok_followers: number;
   total_views: number;
@@ -11,6 +22,7 @@ export interface Stats {
 
 export interface Campaign {
   id: string;
+  creator_id?: string;
   campaign_code: string;
   brand_email: string;
   brand_name: string;
@@ -73,6 +85,7 @@ export interface Campaign {
 
 export interface ApiIntegration {
   id: string;
+  creator_id?: string;
   platform: 'instagram';
   access_token: string;
   expires_at?: string;
@@ -82,6 +95,7 @@ export interface ApiIntegration {
 
 export interface CampaignInsight {
   id?: string;
+  creator_id?: string;
   campaign_id: string;
   best_day: string;
   peak_hour: string;
@@ -97,6 +111,7 @@ export interface CampaignInsight {
 
 export interface HeroVideo {
   id: string;
+  creator_id?: string;
   video_url: string;
   title?: string;
   order_index: number;
@@ -115,6 +130,7 @@ export interface BrandClick {
 
 export interface BestPost {
   id: string;
+  creator_id?: string;
   platform: 'instagram' | 'tiktok' | 'facebook' | 'x' | 'threads';
   post_url: string;
   thumbnail?: string; // Ahora opcional - se muestra placeholder si no existe
@@ -123,6 +139,8 @@ export interface BestPost {
 
 // Profile config interface
 export interface ProfileConfig {
+  id?: string;
+  creator_id?: string;
   name: string;
   tagline: string;
   description: string;
@@ -143,6 +161,7 @@ export interface ProfileConfig {
 // Work format interface (for "Formatos de Trabajo" section)
 export interface WorkFormat {
   id: string;
+  creator_id?: string;
   icon: string;
   title: string;
   description: string;
@@ -152,6 +171,7 @@ export interface WorkFormat {
 // Testimonial interface
 export interface Testimonial {
   id: string;
+  creator_id?: string;
   quote: string;
   brand: string;
   company: string;
@@ -162,15 +182,23 @@ export interface Testimonial {
 // Audience demographics interfaces
 export interface AudienceGender {
   id?: string;
+  creator_id?: string;
   name: string;
   value: number;
 }
 
 export interface AudienceAge {
   id?: string;
+  creator_id?: string;
   age: string;
   percentage: number;
   order_index: number;
+}
+
+export interface AudienceData {
+  gender: AudienceGender[];
+  age: AudienceAge[];
+  summary_text?: string;
 }
 
 // Theme config interface - theme is now managed by useTheme hook

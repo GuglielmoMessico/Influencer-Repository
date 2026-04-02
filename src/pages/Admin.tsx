@@ -494,20 +494,18 @@ VALUES (125000, 340000, 15000000, 8.5);
 -- Perfil inicial
 INSERT INTO profile (name, tagline, description, bio, tags, social_links)
 VALUES (
-  'Yefer Showw',
+  'Nombre del Creador',
   'Content Creator',
   'Creando contenido auténtico que inspira y conecta.',
-  'Conecto marcas con una audiencia leal y diversa a través del humor y la autenticidad. Más que vistas, genero conversaciones reales en el nicho Lifestyle y LGBT+.',
-  ARRAY['Motivación', 'Crecimiento Personal', 'Lifestyle LGBT+'],
-  '{"instagram": "https://instagram.com/yefershoww", "tiktok": "https://tiktok.com/@yefershoww", "email": "contacto@yefershoww.com"}'
+  'Conecto marcas con una audiencia leal y diversa a través del humor y la autenticidad.',
+  ARRAY['Motivación', 'Lifestyle'],
+  '{"instagram": "https://instagram.com/creador", "tiktok": "https://tiktok.com/@creador", "email": "contacto@ejemplo.com"}'
 );
 
 -- Testimonios iniciales
 INSERT INTO testimonials (quote, brand, company) VALUES
-  ('La capacidad de Yefer para conectar con su audiencia es única. Gran retorno de inversión.', 'Director de Marketing', 'Marca de Lifestyle'),
-  ('Su autenticidad y energía hicieron que nuestra campaña se sintiera genuina. Los números hablan por sí solos.', 'Brand Manager', 'Empresa de Moda'),
-  ('Profesional, creativo y con resultados medibles. Definitivamente volveremos a colaborar.', 'CEO', 'Startup de Tecnología'),
-  ('Yefer entiende cómo hablarle a su comunidad. La engagement rate superó nuestras expectativas.', 'Social Media Lead', 'Agencia de Publicidad');
+  ('La capacidad de conectar con su audiencia es única. Gran retorno de inversión.', 'Director de Marketing', 'Marca A'),
+  ('Su autenticidad y energía hicieron que nuestra campaña se sintiera genuina.', 'Brand Manager', 'Marca B');
 
 -- ============================================
 -- IMPORTANTE: Después de crear tu primer usuario

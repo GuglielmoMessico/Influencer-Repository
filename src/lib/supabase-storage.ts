@@ -7,7 +7,8 @@ export type StorageBucket = 'portfolio' | 'avatars' | 'general' | 'campaign-asse
 export const uploadFile = async (
   bucket: StorageBucket,
   file: File,
-  path?: string
+  path?: string,
+  creatorId?: string
 ): Promise<{ url: string | null; error: string | null }> => {
   const client = getSupabaseClient();
   
@@ -19,7 +20,8 @@ export const uploadFile = async (
     // Generate unique filename
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-    const filePath = path ? `${path}/${fileName}` : fileName;
+    const filePathPrefix = path ? `${path}/` : '';
+    const filePath = creatorId ? `${creatorId}/${filePathPrefix}${fileName}` : `${filePathPrefix}${fileName}`;
 
     // Upload file
     const { data, error } = await client.storage

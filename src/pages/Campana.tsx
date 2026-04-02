@@ -16,6 +16,7 @@ import { usePdfExport } from "@/hooks/use-pdf-export";
 import CampaignReportPdf from "@/components/campana/CampaignReportPdf";
 import SEO from "@/components/SEO";
 import DOMPurify from "dompurify";
+import { useCreator } from "@/context/CreatorContext";
 
 const Campana = () => {
   const [email, setEmail] = useState("");
@@ -24,6 +25,7 @@ const Campana = () => {
   const [loading, setLoading] = useState(false);
   const [mediaKitClicks, setMediaKitClicks] = useState(0);
   const { exportToPDF } = usePdfExport();
+  const { creatorId } = useCreator();
   const [exporting, setExporting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -31,7 +33,11 @@ const Campana = () => {
     setLoading(true);
     
     try {
-      const foundCampaign = await getCampaignByCodeAndEmail(code, email);
+      if (!creatorId) {
+        toast.error("Cargando información del creador...");
+        return;
+      }
+      const foundCampaign = await getCampaignByCodeAndEmail(code, email, creatorId);
       
       if (foundCampaign) {
         setCampaign(foundCampaign);

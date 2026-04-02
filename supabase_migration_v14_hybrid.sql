@@ -16,18 +16,12 @@ CREATE TABLE IF NOT EXISTS public.api_integrations (
 -- 2. Enable RLS on api_integrations
 ALTER TABLE public.api_integrations ENABLE ROW LEVEL SECURITY;
 
--- 3. RLS Policies (Assuming admin role based on previous patterns)
--- Note: Adjust the profile check to match your specific DB schema for roles
+-- 3. RLS Policies using the existing has_role() function from user_roles table
 CREATE POLICY "Admins can manage integrations" 
   ON public.api_integrations 
   FOR ALL 
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles 
-      WHERE profiles.id = auth.uid() 
-      AND profiles.role = 'admin'
-    )
-  );
+  TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'));
 
 -- 4. Update Campaigns table for hybrid metrics
 ALTER TABLE public.campaigns 

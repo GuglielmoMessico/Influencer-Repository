@@ -10,6 +10,9 @@ import { CalendarIcon, Send, CheckCircle2, ChevronDown, Building2, Target, FileT
 import { cn } from "@/lib/utils";
 import { submitQuoteRequest, QuoteRequest } from "@/lib/supabase-data";
 import { uploadFile } from "@/lib/supabase-storage";
+import { useCreator } from "@/context/CreatorContext";
+import CreatorSelector from "@/components/CreatorSelector";
+import { Loader2, AlertCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,6 +85,7 @@ const quoteSchema = z.object({
 type QuoteFormValues = z.infer<typeof quoteSchema>;
 
 const Cotizacion: React.FC = () => {
+  const { creatorId, loading, error, slug } = useCreator();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [expectationsOpen, setExpectationsOpen] = useState(true);
@@ -105,6 +109,15 @@ const Cotizacion: React.FC = () => {
   };
 
   const onSubmit = async (values: QuoteFormValues) => {
+    if (!creatorId) {
+      toast({
+        title: "Error",
+        description: "No se ha seleccionado un creador válido.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       let briefFileUrl = "";
@@ -114,7 +127,7 @@ const Cotizacion: React.FC = () => {
         const file = values.brief_file[0];
         const fileName = `${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
         
-        const { url, error: uploadError } = await uploadFile('briefs', file, fileName);
+        const { url, error: uploadError } = await uploadFile('briefs', file, fileName, creatorId || undefined);
         if (url) {
           briefFileUrl = url;
         } else {
@@ -123,6 +136,7 @@ const Cotizacion: React.FC = () => {
       }
 
       const quoteData: Omit<QuoteRequest, 'id' | 'created_at' | 'status'> = {
+        creator_id: creatorId || undefined,
         brand_name: values.brand_name,
         brand_email: values.brand_email,
         brand_whatsapp: values.brand_whatsapp,
@@ -149,7 +163,7 @@ const Cotizacion: React.FC = () => {
         notes: values.notes || undefined,
       };
 
-      const result = await submitQuoteRequest(quoteData);
+      const result = await submitQuoteRequest(creatorId, quoteData);
       
       if (result) {
         setIsSubmitted(true);
@@ -172,6 +186,54 @@ const Cotizacion: React.FC = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <span className="text-muted-foreground font-medium">Cargando formulario...</span>
+      </div>
+    );
+  }
+
+  // Si hay un error (creador no encontrado en el slug actual)
+  if (error && slug) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 gap-6 text-center">
+        <AlertCircle className="w-12 h-12 text-destructive" />
+        <div className="space-y-2 max-w-md">
+          <h2 className="text-2xl font-bold font-heading">Ruta no válida</h2>
+          <p className="text-muted-foreground">{error}</p>
+        </div>
+        <div className="w-full max-w-4xl">
+          <CreatorSelector 
+            title="Selecciona un creador oficial" 
+            description="Para cotizar, elige primero al influencer de nuestra red."
+          />
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Si no hay creador seleccionado (ruta raíz "/cotizacion")
+  if (!creatorId) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col pt-12">
+        <SEO 
+          title="Nueva Cotización" 
+          description="Solicita una cotización personalizada para tu próxima campaña."
+        />
+        <div className="flex-1 max-w-7xl mx-auto px-4 w-full">
+          <CreatorSelector 
+            title="¿A quién deseas cotizar?" 
+            description="Selecciona un creador para acceder a su formulario de solicitud de campaña."
+          />
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
   if (isSubmitted) {
     return (
       <div className="min-h-screen bg-background">
@@ -185,7 +247,7 @@ const Cotizacion: React.FC = () => {
             <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-primary/10 flex items-center justify-center">
               <CheckCircle2 className="w-10 h-10 text-primary" />
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-4">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-4 font-heading">
               ¡Solicitud Recibida!
             </h1>
             <p className="text-muted-foreground mb-8">
