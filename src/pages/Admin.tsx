@@ -74,8 +74,9 @@ const Admin = () => {
     expected_engagement: 0,
     start_date: "",
     end_date: "",
-    platform: "instagram" as "instagram" | "tiktok" | "both" | "facebook" | "x" | "threads",
-    campaign_type: "reels" as "stories" | "reels" | "post" | "live" | "mixed",
+    platform: ["instagram"] as ("instagram" | "tiktok" | "both" | "facebook" | "x" | "threads")[],
+    campaign_type: ["reels"] as ("stories" | "reels" | "post" | "live" | "mixed")[],
+
     budget: 0,
     video_result_url: "",
     notes: "",
@@ -907,285 +908,8 @@ WHERE email = '${session.user.email}';`}
                 </CardContent>
               </Card>
 
-              {/* SQL Schema Card */}
-              <Card className="shadow-elegant border-primary/20">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-primary">
-                    📋 SQL para crear tablas
-                  </CardTitle>
-                  <CardDescription>
-                    Copia este SQL y ejecútalo en el SQL Editor de tu proyecto Supabase
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="relative">
-                    <Textarea 
-                      value={sqlSchema}
-                      readOnly
-                      className="font-mono text-xs h-64 bg-muted/50 border-primary/20"
-                    />
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="absolute top-2 right-2"
-                      onClick={() => copyToClipboard(sqlSchema)}
-                    >
-                      <Copy className="w-4 h-4 mr-2" />
-                      Copiar SQL
-                    </Button>
-                  </div>
-                  <div className="p-4 bg-muted/30 rounded-lg border border-dashed">
-                    <h4 className="font-medium text-primary mb-2">📋 Instrucciones</h4>
-                    <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-                      <li>Ve a tu proyecto en <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="text-primary underline">supabase.com/dashboard</a></li>
-                      <li>Abre el SQL Editor en el menú lateral</li>
-                      <li>Pega el SQL y haz clic en "Run"</li>
-                      <li>Regresa aquí y prueba la conexión</li>
-                    </ol>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Storage Setup Card */}
-              <Card className="shadow-elegant border-primary/20">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-primary">
-                    📦 SQL para Storage (Subir imágenes)
-                  </CardTitle>
-                  <CardDescription>
-                    Ejecuta este SQL adicional para habilitar la subida de imágenes a Supabase Storage
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="relative">
-                    <Textarea 
-                      value={getStorageSetupSQL()}
-                      readOnly
-                      className="font-mono text-xs h-64 bg-muted/50 border-primary/20"
-                    />
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="absolute top-2 right-2"
-                      onClick={() => copyToClipboard(getStorageSetupSQL())}
-                    >
-                      <Copy className="w-4 h-4 mr-2" />
-                      Copiar SQL
-                    </Button>
-                  </div>
-                  <div className="p-4 bg-amber-500/10 rounded-lg border border-amber-500/30">
-                    <h4 className="font-medium text-amber-700 dark:text-amber-400 mb-2">⚠️ Importante</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Este SQL crea los buckets <code className="bg-muted px-1 rounded">media</code> y <code className="bg-muted px-1 rounded">campaigns</code> para almacenar imágenes. 
-                      Ejecuta esto <strong>después</strong> del SQL principal si quieres usar la función de subir imágenes.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Migration SQL Card */}
-              <Card className="shadow-elegant border-primary/20">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-primary">
-                    🔄 SQL de Migración (si ya tienes tablas)
-                  </CardTitle>
-                  <CardDescription>
-                    Si ya creaste las tablas anteriormente, ejecuta esto para añadir los nuevos campos de expectativas
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="relative">
-                    <Textarea 
-                      value={`-- ============================================
--- MIGRACIÓN: Añadir campos de expectativas a campaigns
--- Ejecuta esto si ya tienes la tabla campaigns creada
--- ============================================
-
--- Añadir campos de expectativas
-ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS expected_reach INTEGER DEFAULT 0;
-ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS expected_impressions INTEGER DEFAULT 0;
-ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS expected_clicks INTEGER DEFAULT 0;
-ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS expected_ctr DECIMAL(5,2) DEFAULT 0;
-ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS expected_engagement DECIMAL(5,2) DEFAULT 0;
-
--- Añadir campos de detalles de campaña
-ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS start_date DATE;
-ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS end_date DATE;
-ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS platform TEXT CHECK (platform IN ('instagram', 'tiktok', 'both', 'facebook', 'x', 'threads'));
-ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS campaign_type TEXT CHECK (campaign_type IN ('stories', 'reels', 'post', 'live', 'mixed'));
-ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS budget DECIMAL(10,2) DEFAULT 0;
-ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS notes TEXT;
-ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS accepted_at TIMESTAMPTZ;
-
--- ============================================
--- MIGRACIÓN: Añadir campos de imagen a testimonials
--- ============================================
-ALTER TABLE testimonials ADD COLUMN IF NOT EXISTS image_url TEXT;
-ALTER TABLE testimonials ADD COLUMN IF NOT EXISTS image_type TEXT CHECK (image_type IN ('logo', 'photo'));
-
--- ============================================
--- MIGRACIÓN: Añadir Facebook a best_posts
--- ============================================
-ALTER TABLE best_posts DROP CONSTRAINT IF EXISTS best_posts_platform_check;
-ALTER TABLE best_posts ADD CONSTRAINT best_posts_platform_check CHECK (platform IN ('instagram', 'tiktok', 'facebook', 'x', 'threads'));
-
--- Verificar que se añadieron correctamente
-SELECT column_name, data_type 
-FROM information_schema.columns 
-WHERE table_name = 'campaigns' 
-ORDER BY ordinal_position;`}
-                      readOnly
-                      className="font-mono text-xs h-64 bg-muted/50 border-primary/20"
-                    />
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="absolute top-2 right-2"
-                      onClick={() => copyToClipboard(`-- MIGRACIÓN COMPLETA
--- Campaigns: expectativas y detalles
-ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS expected_reach INTEGER DEFAULT 0;
-ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS expected_impressions INTEGER DEFAULT 0;
-ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS expected_clicks INTEGER DEFAULT 0;
-ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS expected_ctr DECIMAL(5,2) DEFAULT 0;
-ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS expected_engagement DECIMAL(5,2) DEFAULT 0;
-ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS start_date DATE;
-ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS end_date DATE;
-ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS platform TEXT CHECK (platform IN ('instagram', 'tiktok', 'both', 'facebook', 'x', 'threads'));
-ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS campaign_type TEXT CHECK (campaign_type IN ('stories', 'reels', 'post', 'live', 'mixed'));
-ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS budget DECIMAL(10,2) DEFAULT 0;
-ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS notes TEXT;
-ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS accepted_at TIMESTAMPTZ;
-
--- Testimonials: imagen
-ALTER TABLE testimonials ADD COLUMN IF NOT EXISTS image_url TEXT;
-ALTER TABLE testimonials ADD COLUMN IF NOT EXISTS image_type TEXT CHECK (image_type IN ('logo', 'photo'));
-
--- Best Posts: Facebook
-ALTER TABLE best_posts DROP CONSTRAINT IF EXISTS best_posts_platform_check;
-ALTER TABLE best_posts ADD CONSTRAINT best_posts_platform_check CHECK (platform IN ('instagram', 'tiktok', 'facebook', 'x', 'threads'));`)}
-                    >
-                      <Copy className="w-4 h-4 mr-2" />
-                      Copiar SQL
-                    </Button>
-                  </div>
-                  <div className="p-4 bg-blue-500/10 rounded-lg border border-blue-500/30">
-                    <h4 className="font-medium text-blue-700 dark:text-blue-400 mb-2">ℹ️ Solo si ya tienes tablas</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Este SQL <strong>solo es necesario</strong> si ya ejecutaste el schema original. Los nuevos campos permiten 
-                      comparar resultados reales vs expectativas de la marca.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Audience Tables SQL */}
-              <Card className="shadow-elegant border-primary/20">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-primary">
-                    <PieChart className="w-5 h-5" />
-                    SQL para Tablas de Audiencia
-                  </CardTitle>
-                  <CardDescription>
-                    Ejecuta este SQL para crear las tablas de demografía (género y edad)
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="relative">
-                    <Textarea 
-                      value={`-- ============================================
--- TABLAS DE AUDIENCIA (Demografía)
--- ============================================
-
--- Tabla de género
-CREATE TABLE IF NOT EXISTS audience_gender (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  value INTEGER NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Tabla de edad
-CREATE TABLE IF NOT EXISTS audience_age (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  age TEXT NOT NULL,
-  percentage INTEGER NOT NULL DEFAULT 0,
-  order_index INTEGER NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Habilitar RLS
-ALTER TABLE audience_gender ENABLE ROW LEVEL SECURITY;
-ALTER TABLE audience_age ENABLE ROW LEVEL SECURITY;
-
--- Políticas de lectura pública
-CREATE POLICY "Public read audience_gender" ON audience_gender FOR SELECT USING (true);
-CREATE POLICY "Public read audience_age" ON audience_age FOR SELECT USING (true);
-
--- Políticas de escritura (solo admins)
-CREATE POLICY "Admins can manage audience_gender" ON audience_gender FOR ALL TO authenticated 
-  USING (public.has_role(auth.uid(), 'admin'));
-CREATE POLICY "Admins can manage audience_age" ON audience_age FOR ALL TO authenticated 
-  USING (public.has_role(auth.uid(), 'admin'));
-
--- Datos iniciales de género
-INSERT INTO audience_gender (name, value) VALUES
-  ('Hombres', 77),
-  ('Mujeres', 23);
-
--- Datos iniciales de edad
-INSERT INTO audience_age (age, percentage, order_index) VALUES
-  ('18-24', 22, 0),
-  ('25-34', 38, 1),
-  ('35-44', 20, 2),
-  ('45-54', 12, 3),
-  ('55+', 8, 4);`}
-                      readOnly
-                      className="font-mono text-xs h-64 bg-muted/50 border-primary/20"
-                    />
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="absolute top-2 right-2"
-                      onClick={() => copyToClipboard(`-- TABLAS DE AUDIENCIA
-CREATE TABLE IF NOT EXISTS audience_gender (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  value INTEGER NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS audience_age (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  age TEXT NOT NULL,
-  percentage INTEGER NOT NULL DEFAULT 0,
-  order_index INTEGER NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-ALTER TABLE audience_gender ENABLE ROW LEVEL SECURITY;
-ALTER TABLE audience_age ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Public read audience_gender" ON audience_gender FOR SELECT USING (true);
-CREATE POLICY "Public read audience_age" ON audience_age FOR SELECT USING (true);
-CREATE POLICY "Admins can manage audience_gender" ON audience_gender FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
-CREATE POLICY "Admins can manage audience_age" ON audience_age FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
-
-INSERT INTO audience_gender (name, value) VALUES ('Hombres', 77), ('Mujeres', 23);
-INSERT INTO audience_age (age, percentage, order_index) VALUES ('18-24', 22, 0), ('25-34', 38, 1), ('35-44', 20, 2), ('45-54', 12, 3), ('55+', 8, 4);`)}
-                    >
-                      <Copy className="w-4 h-4 mr-2" />
-                      Copiar SQL
-                    </Button>
-                  </div>
-                  <div className="p-4 bg-green-500/10 rounded-lg border border-green-500/30">
-                    <h4 className="font-medium text-green-700 dark:text-green-400 mb-2">✅ Requerido para editar audiencia</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Este SQL crea las tablas necesarias para que los gráficos de "Conoce Mi Audiencia" sean editables desde el panel admin.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
             </TabsContent>
+
 
             {/* Stats Tab */}
             <TabsContent value="stats">
@@ -1379,40 +1103,51 @@ INSERT INTO audience_age (age, percentage, order_index) VALUES ('18-24', 22, 0),
                       <div className="grid md:grid-cols-4 gap-4">
                         <div className="space-y-2">
                           <Label>Plataforma</Label>
-                          <Select
-                            value={newCampaign.platform}
-                            onValueChange={(value: "instagram" | "tiktok" | "both" | "facebook" | "x" | "threads") => setNewCampaign({...newCampaign, platform: value})}
-                          >
-                            <SelectTrigger className="border-primary/20">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="instagram">Instagram</SelectItem>
-                              <SelectItem value="tiktok">TikTok</SelectItem>
-                              <SelectItem value="facebook">Facebook</SelectItem>
-                              <SelectItem value="x">X</SelectItem>
-                              <SelectItem value="threads">Threads</SelectItem>
-                              <SelectItem value="both">Multi-plataforma</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <div className="flex flex-wrap gap-2 border border-primary/20 rounded-md p-2 bg-background">
+                            {(["instagram", "tiktok", "facebook", "x", "threads", "both"] as const).map((p) => (
+                              <label key={p} className="flex items-center gap-1.5 cursor-pointer text-sm select-none">
+                                <input
+                                  type="checkbox"
+                                  className="accent-primary"
+                                  checked={newCampaign.platform.includes(p)}
+                                  onChange={(e) => {
+                                    const current = newCampaign.platform;
+                                    setNewCampaign({
+                                      ...newCampaign,
+                                      platform: e.target.checked
+                                        ? [...current, p]
+                                        : current.filter((v) => v !== p)
+                                    });
+                                  }}
+                                />
+                                {p === "instagram" ? "Instagram" : p === "tiktok" ? "TikTok" : p === "facebook" ? "Facebook" : p === "x" ? "X" : p === "threads" ? "Threads" : "Multi-plataforma"}
+                              </label>
+                            ))}
+                          </div>
                         </div>
                         <div className="space-y-2">
                           <Label>Tipo de Contenido</Label>
-                          <Select
-                            value={newCampaign.campaign_type}
-                            onValueChange={(value: "stories" | "reels" | "post" | "live" | "mixed") => setNewCampaign({...newCampaign, campaign_type: value})}
-                          >
-                            <SelectTrigger className="border-primary/20">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="reels">Reels</SelectItem>
-                              <SelectItem value="stories">Stories</SelectItem>
-                              <SelectItem value="post">Post Feed</SelectItem>
-                              <SelectItem value="live">Live</SelectItem>
-                              <SelectItem value="mixed">Mixto</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <div className="flex flex-wrap gap-2 border border-primary/20 rounded-md p-2 bg-background">
+                            {(["reels", "stories", "post", "live", "mixed"] as const).map((t) => (
+                              <label key={t} className="flex items-center gap-1.5 cursor-pointer text-sm select-none">
+                                <input
+                                  type="checkbox"
+                                  className="accent-primary"
+                                  checked={newCampaign.campaign_type.includes(t)}
+                                  onChange={(e) => {
+                                    const current = newCampaign.campaign_type;
+                                    setNewCampaign({
+                                      ...newCampaign,
+                                      campaign_type: e.target.checked
+                                        ? [...current, t]
+                                        : current.filter((v) => v !== t)
+                                    });
+                                  }}
+                                />
+                                {t === "reels" ? "Reels" : t === "stories" ? "Stories" : t === "post" ? "Post Feed" : t === "live" ? "Live" : "Mixto"}
+                              </label>
+                            ))}
+                          </div>
                         </div>
                         <div className="space-y-2">
                           <Label>Fecha Inicio</Label>
