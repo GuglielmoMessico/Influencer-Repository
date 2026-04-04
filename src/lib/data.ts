@@ -4,6 +4,9 @@
 export interface Stats {
   instagram_followers: number;
   tiktok_followers: number;
+  x_followers: number;
+  threads_followers: number;
+  facebook_followers: number;
   total_views: number;
   engagement_rate: number;
   last_updated: string;

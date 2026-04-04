@@ -881,6 +881,36 @@ WHERE email = '${session.user.email}';`}
                       />
                     </div>
                     <div className="space-y-2">
+                      <Label>Seguidores X</Label>
+                      <Input
+                        type="number"
+                        value={localStats?.x_followers ?? 0}
+                        onChange={(e) => localStats && setLocalStats({...localStats, x_followers: parseInt(e.target.value) || 0})}
+                        className="border-primary/20"
+                        disabled={!localStats}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Seguidores Threads</Label>
+                      <Input
+                        type="number"
+                        value={localStats?.threads_followers ?? 0}
+                        onChange={(e) => localStats && setLocalStats({...localStats, threads_followers: parseInt(e.target.value) || 0})}
+                        className="border-primary/20"
+                        disabled={!localStats}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Seguidores Facebook</Label>
+                      <Input
+                        type="number"
+                        value={localStats?.facebook_followers ?? 0}
+                        onChange={(e) => localStats && setLocalStats({...localStats, facebook_followers: parseInt(e.target.value) || 0})}
+                        className="border-primary/20"
+                        disabled={!localStats}
+                      />
+                    </div>
+                    <div className="space-y-2">
                       <Label>Total Views</Label>
                       <Input
                         type="number"
@@ -902,6 +932,7 @@ WHERE email = '${session.user.email}';`}
                       />
                     </div>
                   </div>
+
                   <Button onClick={handleSaveStats} className="gradient-primary text-primary-foreground">
                     <Save className="w-4 h-4 mr-2" />
                     Guardar Cambios
