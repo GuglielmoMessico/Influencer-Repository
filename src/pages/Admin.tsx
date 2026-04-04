@@ -776,14 +776,10 @@ WHERE email = '${session.user.email}';`}
           )}
 
           <Tabs defaultValue="profile" className="space-y-6">
-            <TabsList className="grid grid-cols-10 w-full max-w-5xl">
+            <TabsList className="grid grid-cols-9 w-full max-w-5xl">
               <TabsTrigger value="profile" className="flex items-center gap-2">
                 <User className="w-4 h-4" />
                 <span className="hidden sm:inline">Perfil</span>
-              </TabsTrigger>
-              <TabsTrigger value="supabase" className="flex items-center gap-2">
-                <Database className="w-4 h-4" />
-                <span className="hidden sm:inline">Supabase</span>
               </TabsTrigger>
               <TabsTrigger value="integrations" className="flex items-center gap-2">
                 <KeyRound className="w-4 h-4" />
@@ -847,68 +843,7 @@ WHERE email = '${session.user.email}';`}
               </Card>
             </TabsContent>
 
-            {/* Supabase Config Tab */}
-            <TabsContent value="supabase" className="space-y-6">
-              <Card className="shadow-elegant border-primary/20">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-primary">
-                    <Database className="w-5 h-5" />
-                    Estado de Supabase
-                  </CardTitle>
-                  <CardDescription>
-                    Supabase se configura mediante variables de entorno
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Status indicator */}
-                  <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                    <div className="flex items-center gap-3">
-                      {supabaseConfigured ? (
-                        <>
-                          <CheckCircle className="w-6 h-6 text-green-500" />
-                          <div>
-                            <p className="font-medium text-green-700 dark:text-green-400">Supabase Configurado</p>
-                            <p className="text-sm text-muted-foreground">
-                              {statsFromSupabase || campaignsFromSupabase || postsFromSupabase ? (
-                                <span className="flex items-center gap-1">
-                                  <Cloud className="w-3 h-3" /> Usando datos de Supabase
-                                </span>
-                              ) : (
-                                <span className="flex items-center gap-1">
-                                  <CloudOff className="w-3 h-3" /> Conectado pero sin datos
-                                </span>
-                              )}
-                            </p>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <XCircle className="w-6 h-6 text-yellow-500" />
-                          <div>
-                            <p className="font-medium text-yellow-700 dark:text-yellow-400">Sin Configurar</p>
-                            <p className="text-sm text-muted-foreground">
-                              Las variables VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY no están configuradas
-                            </p>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
 
-                  <div className="p-4 bg-muted/30 rounded-lg border border-dashed">
-                    <h4 className="font-medium text-primary mb-2">📋 Configuración</h4>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Para configurar Supabase, agrega estas variables de entorno en tu hosting (Netlify, Vercel, etc.):
-                    </p>
-                    <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside font-mono">
-                      <li>VITE_SUPABASE_URL</li>
-                      <li>VITE_SUPABASE_ANON_KEY</li>
-                    </ul>
-                  </div>
-                </CardContent>
-              </Card>
-
-            </TabsContent>
 
 
             {/* Stats Tab */}
